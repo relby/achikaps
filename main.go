@@ -11,8 +11,8 @@ import (
 )
 
 type Position struct {
-	X float32 `json:"x"`
-	Y float32 `json:"y"`
+	X float32
+	Y float32
 }
 
 type NodeID uint
@@ -143,9 +143,9 @@ func (m *Match) MatchLeave(ctx context.Context, logger runtime.Logger, db *sql.D
 }
 
 type buildNodeReq struct {
-	FromNodeID uint     `json:"from_node_id"`
-	Type       uint     `json:"type"`
-	Position   Position `json:"position"`
+	FromNodeID uint
+	Type       uint
+	Position   Position
 }
 
 type buildNodeResp struct {
