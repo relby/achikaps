@@ -11,13 +11,17 @@ import (
 )
 
 type Position struct {
-	X, Y, Z float32
+	X float32 `json:"x"`
+	Y float32 `json:"y"`
 }
 
 type NodeID uint
 
-func NewNodeID(v uint) NodeID {
-	return NodeID(v)
+func NewNodeID(v uint) (NodeID, error) {
+	if v == 0 {
+		return 0, errors.New("invalid node id")
+	}
+	return NodeID(v), nil
 }
 
 type NodeType uint
@@ -67,7 +71,7 @@ func NewNode(id NodeID, typ NodeType, position Position) Node {
 type OpCode int
 
 const (
-	OpCodeBuildPlatform = 1
+	OpCodeBuildNode = 1
 )
 
 type Match struct{}
@@ -86,7 +90,7 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 	}
 
 	tickRate := 1 // 1 tick per second = 1 MatchLoop func invocations per second
-	label := "TODO"
+	label := "achikaps"
 	return state, tickRate, label
 }
 
@@ -111,7 +115,7 @@ func (m *Match) MatchJoin(ctx context.Context, logger runtime.Logger, db *sql.DB
 		root := NewNode(
 			1,
 			TransitNodeType,
-			Position{0, 0, 0},
+			Position{0, 0},
 		)
 		_ = g.AddVertex(root)
 		matchState.Graphs[userID] = g
@@ -138,10 +142,14 @@ func (m *Match) MatchLeave(ctx context.Context, logger runtime.Logger, db *sql.D
 	return matchState
 }
 
-type BuildNodeReq struct {
-	FromNodeID uint
-	Type       uint
-	Position   Position
+type buildNodeReq struct {
+	FromNodeID uint     `json:"from_node_id"`
+	Type       uint     `json:"type"`
+	Position   Position `json:"position"`
+}
+
+type buildNodeResp struct {
+	Error string `json:"error"`
 }
 
 func (m *Match) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, dispatcher runtime.MatchDispatcher, tick int64, state interface{}, messages []runtime.MatchData) interface{} {
@@ -152,26 +160,32 @@ func (m *Match) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB
 	}
 
 	for _, msg := range messages {
-		logger.Info("got message: %v", msg, msg.GetOpCode())
+		logger.Info("got message: %s", string(msg.GetData()))
 		userID := msg.GetUserId()
 
-		if opCode := msg.GetOpCode(); opCode == OpCodeBuildPlatform {
+		if opCode := msg.GetOpCode(); opCode == OpCodeBuildNode {
 			g, ok := matchState.Graphs[userID]
 			if !ok {
 				logger.Error("can't find graph for user with id %q", userID)
 				return nil
 			}
 
-			var req BuildNodeReq
+			var req buildNodeReq
 			if err := json.Unmarshal(msg.GetData(), &req); err != nil {
 				logger.Warn("can't unmarshal data: %v", err)
-				return nil
+				continue
 			}
 
-			fromNodeID := NewNodeID(req.FromNodeID)
+			fromNodeID, err := NewNodeID(req.FromNodeID)
+			if err != nil {
+				logger.Warn("invalid from_node_id: %v", err)
+				continue
+			}
+
 			if _, err := g.Vertex(fromNodeID); err != nil {
+				resp, _ := json.Marshal(buildNodeResp{Error: "node not found"})
 				if errors.Is(err, graph.ErrEdgeNotFound) {
-					if err := dispatcher.BroadcastMessage(OpCodeBuildPlatform, []byte(`{"success":false,"reason":"node not found"}`), nil, matchState.Presences[userID], true); err != nil {
+					if err := dispatcher.BroadcastMessage(OpCodeBuildNode, resp, nil, matchState.Presences[userID], true); err != nil {
 						logger.Error("can't broadcast message: %v", err)
 						return nil
 					}
@@ -180,9 +194,10 @@ func (m *Match) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB
 				logger.Error("unkown error happened: %v", err)
 			}
 
-			typ, err := NewNodeType(req.Type)
+			t, err := NewNodeType(req.Type)
 			if err != nil {
-				if err := dispatcher.BroadcastMessage(OpCodeBuildPlatform, []byte(`{"success":false,"reason":"invalid node type"}`), nil, matchState.Presences[userID], true); err != nil {
+				resp, _ := json.Marshal(buildNodeResp{Error: "invalid node type"})
+				if err := dispatcher.BroadcastMessage(OpCodeBuildNode, resp, nil, matchState.Presences[userID], true); err != nil {
 					logger.Error("can't broadcast message: %v", err)
 					return nil
 				}
@@ -193,17 +208,18 @@ func (m *Match) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB
 
 			nodeID, ok := matchState.NextNodeIDs[userID]
 			if !ok {
-				panic("TODO")
+				logger.Error("can't get next node id")
 			}
 
 			_ = g.AddVertex(NewNode(
 				nodeID,
-				typ,
+				t,
 				req.Position,
 			))
 			_ = g.AddEdge(fromNodeID, nodeID)
 
-			if err := dispatcher.BroadcastMessage(OpCodeBuildPlatform, []byte(`{"success":true}`), nil, matchState.Presences[userID], true); err != nil {
+			resp, _ := json.Marshal(buildNodeResp{Error: ""})
+			if err := dispatcher.BroadcastMessage(OpCodeBuildNode, resp, nil, matchState.Presences[userID], true); err != nil {
 				logger.Error("can't broadcast message: %v", err)
 				return nil
 			}
@@ -211,24 +227,6 @@ func (m *Match) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB
 			logger.Warn("invalid opcode: %v", opCode)
 		}
 	}
-
-	// edgeCount := 0
-	// if len(matchState.graphs) > 0 {
-	// 	e, _ := slices.Collect(maps.Values(matchState.graphs))[0].Edges()
-	// 	edgeCount = len(e)
-	// }
-
-	// b, err := json.Marshal(map[string]any{
-	// 	"edgeCount": edgeCount,
-	// })
-	// if err != nil {
-	// 	logger.Error("failed to marshal graphs")
-	// 	return nil
-	// }
-	// if err := dispatcher.BroadcastMessage(69, b, nil, nil, true); err != nil {
-	// 	logger.Error("failed to broadcast message")
-	// 	return nil
-	// }
 
 	return matchState
 }
@@ -252,9 +250,9 @@ func CreateMatchRPC(ctx context.Context, logger runtime.Logger, db *sql.DB, nk r
 		return "", err
 	}
 
-	modulename := "match"
+	moduleName := "match"
 
-	if matchId, err := nk.MatchCreate(ctx, modulename, params); err != nil {
+	if matchId, err := nk.MatchCreate(ctx, moduleName, params); err != nil {
 		logger.Error("failed to create a match: %v", err)
 		return "", err
 	} else {
