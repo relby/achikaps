@@ -37,6 +37,7 @@ func (m *Manager) executeUnitAction(u *unit.Unit, action *unit.Action) bool {
 		}
 		
 		return false
+	// TODO: Maybe I should change this logic according to building logic
 	case unit.ProductionActionType:
 		data, ok := action.Data.(*unit.MovingActionData)
 		assert.True(ok)
@@ -63,14 +64,11 @@ func (m *Manager) executeUnitAction(u *unit.Unit, action *unit.Action) bool {
 		
 		return false
 	case unit.BuildingActionType:
-		data, ok := action.Data.(*unit.BuildingActionData)
-		assert.True(ok)
-		
 		const progressIncrement = 0.1
-		data.Progress += progressIncrement
+		u.Node.BuildProgress += progressIncrement
 		
-		if data.Progress >= 1.0 {
-			u.Node.IsBuilt = true
+		if u.Node.BuildProgress >= 1.0 {
+			u.Node.BuildProgress = 1.0
 			return true
 		}
 		
@@ -95,8 +93,19 @@ func (m *Manager) pollActions(a *unit.Unit) bool {
 			adjacentNodes = append(adjacentNodes, nodeID)
 		}
 		
-		// If there is no adjancent nodes do nothing
-		if len(adjacentNodes) == 0 {
+		// Filter out nodes that are not built yet
+		filteredNodes := make([]*node.Node, 0, len(adjacentNodes))
+		for _, nID := range adjacentNodes {
+			n, err := m.Graph.Node(nID)
+			assert.NoError(err)
+
+			if n.IsBuilt() {
+				filteredNodes = append(filteredNodes, n)
+			}
+		}
+		
+		// If there are no nodes do nothing
+		if len(filteredNodes) == 0 {
 			return false
 		}
 
@@ -146,7 +155,7 @@ func (m *Manager) pollActions(a *unit.Unit) bool {
 		return true
 		
 	case unit.BuilderType:
-		if a.Node.IsBuilt {
+		if a.Node.IsBuilt() {
 			buildingNodes := m.Graph.BuildingNodes()
 			
 			if len(buildingNodes) == 0 {

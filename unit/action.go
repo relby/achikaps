@@ -45,13 +45,11 @@ func NewProductionAction() *Action {
 	)
 }
 
-type BuildingActionData struct {
-	Progress float64
-}
+type BuildingActionData struct {}
 
 func NewBuildingAction() *Action {
 	return new(
 		BuildingActionType,
-		&BuildingActionData{0},
+		&BuildingActionData{},
 	)
 }

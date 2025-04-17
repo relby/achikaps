@@ -55,7 +55,7 @@ type Node struct {
 	Data     any
 	Position vec2.Vec2
 	Radius   float64
-	IsBuilt  bool
+	BuildProgress float64
 }
 
 func new(id ID, typ Type, pos vec2.Vec2, data any) *Node {
@@ -65,7 +65,7 @@ func new(id ID, typ Type, pos vec2.Vec2, data any) *Node {
 		data,
 		pos,
 		TypeRadiuses[typ],
-		false,
+		0,
 	}
 }
 
@@ -95,4 +95,8 @@ func (n1 *Node) Intersects(n2 *Node) bool {
 	distance := n1.DistanceTo(n2)
 	sumOfRadii := n1.Radius + n2.Radius
 	return distance < sumOfRadii
+}
+
+func (n *Node) IsBuilt() bool {
+	return n.BuildProgress >= 1
 }

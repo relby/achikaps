@@ -9,7 +9,7 @@
     "Position": {"X": float64, "Y": float64}
     "Data": any // Допольнительные данные
     "Radius": float64
-    "IsBuilt": bool // Показатель того, что нода построена
+    "BuildProgress": bool // Значение от 0 до 1, если 1 то нода построена
 }
 ```
 
@@ -36,10 +36,13 @@
     "Progress": float64 // Значение от 0 до 1, обозначающее продвижение по дороге от одной ноде к другой
 }
 
-// ProductionData и BuildingData
+// ProductionData 
 {
     "Progress": float64
 }
+
+// BuildingData
+{}
 ```
 
 

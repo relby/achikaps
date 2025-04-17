@@ -87,7 +87,7 @@ func (g *Graph) BuildingNodes() []*node.Node {
 	out := make([]*node.Node, 0, len(ns))
 
 	for _, n := range ns {
-		if !n.IsBuilt {
+		if !n.IsBuilt() {
 			out = append(out, n)
 		}
 	}
