@@ -1,0 +1,24 @@
+{
+  "name": "achikaps",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/relby/achikaps.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/relby/achikaps/issues"
+  },
+  "homepage": "https://github.com/relby/achikaps#readme",
+  "description": "",
+  "dependencies": {
+    "@heroiclabs/nakama-js": "^2.8.0"
+  }
+}

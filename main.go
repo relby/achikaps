@@ -3,50 +3,70 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"fmt"
+	"maps"
+	"math"
+	"slices"
 
-	"github.com/dominikbraun/graph"
 	"github.com/heroiclabs/nakama-common/rtapi"
 	"github.com/heroiclabs/nakama-common/runtime"
-	"google.golang.org/grpc/codes"
+	"github.com/relby/achikaps/game"
+	"github.com/relby/achikaps/graph"
+	"github.com/relby/achikaps/match_state"
+	"github.com/relby/achikaps/node"
+	"github.com/relby/achikaps/opcode"
+	"github.com/relby/achikaps/unit"
+	"github.com/relby/achikaps/vec2"
 )
 
 type Match struct{}
 
-type MatchState struct {
-	Presences   map[string]runtime.Presence
-	Graphs      map[string]graph.Graph[NodeID, Node]
-	NextNodeIDs map[string]NodeID
-}
-
 const StartRadius = 100.0
+func onCircle(i, n int, r float64) vec2.Vec2 {
+	angle := float64(i) * 2.0 * math.Pi / float64(n)
+
+	return vec2.New(
+		r * math.Cos(angle),
+		r * math.Sin(angle),
+	)
+}
 
 func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, params map[string]interface{}) (interface{}, int, string) {
 	// TODO: handle errors
 	players := params["players"].([]runtime.MatchmakerEntry)
 
-	state := &MatchState{
+	state := &match_state.State{
 		Presences:   make(map[string]runtime.Presence, len(players)),
-		Graphs:      make(map[string]graph.Graph[NodeID, Node], len(players)),
-		NextNodeIDs: make(map[string]NodeID, len(players)),
+		Graphs:      make(map[string]*graph.Graph, len(players)),
+		NextNodeIDs: make(map[string]node.ID, len(players)),
+		GameManagers: make(map[string]*game.Manager, len(players)),
 	}
-
+	
 	for i, p := range players {
 		userID := p.GetPresence().GetUserId()
 
-		g := graph.New(func(v Node) NodeID { return v.ID })
-		root := NewNode(
+		root := node.NewTransit(
 			1,
-			TransitNodeType,
-			getPositionOnCircle(i, len(players), StartRadius), // TODO: refactor radius to constant
+			onCircle(i, len(players), StartRadius),
 		)
-		_ = g.AddVertex(root)
+		g := graph.New(root)
 
 		state.Graphs[userID] = g
 
 		state.NextNodeIDs[userID] = root.ID + 1
+		
+		state.GameManagers[userID] = game.NewManager(
+			g,
+			[]*unit.Unit{
+				unit.New(unit.IdleType, root),
+				unit.New(unit.IdleType, root),
+				unit.New(unit.IdleType, root),
+			},
+		)
 	}
 
-	tickRate := 1 // 1 tick per second = 1 MatchLoop func invocations per second
+	tickRate := 5 // 1 tick per second = 1 MatchLoop func invocations per second
 	label := "achikaps"
 	return state, tickRate, label
 }
@@ -58,7 +78,7 @@ func (m *Match) MatchJoinAttempt(ctx context.Context, logger runtime.Logger, db 
 }
 
 func (m *Match) MatchJoin(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, dispatcher runtime.MatchDispatcher, tick int64, state interface{}, presences []runtime.Presence) interface{} {
-	matchState, ok := state.(*MatchState)
+	matchState, ok := state.(*match_state.State)
 	if !ok {
 		logger.Error("state not a valid lobby state object")
 		return nil
@@ -73,7 +93,7 @@ func (m *Match) MatchJoin(ctx context.Context, logger runtime.Logger, db *sql.DB
 }
 
 func (m *Match) MatchLeave(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, dispatcher runtime.MatchDispatcher, tick int64, state interface{}, presences []runtime.Presence) interface{} {
-	matchState, ok := state.(*MatchState)
+	matchState, ok := state.(*match_state.State)
 	if !ok {
 		logger.Error("state not a valid lobby state object")
 		return nil
@@ -89,7 +109,7 @@ func (m *Match) MatchLeave(ctx context.Context, logger runtime.Logger, db *sql.D
 }
 
 func (m *Match) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, dispatcher runtime.MatchDispatcher, tick int64, state interface{}, messages []runtime.MatchData) interface{} {
-	matchState, ok := state.(*MatchState)
+	matchState, ok := state.(*match_state.State)
 	if !ok {
 		logger.Error("state not a valid lobby state object")
 		return nil
@@ -97,12 +117,45 @@ func (m *Match) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB
 
 	for _, msg := range messages {
 		logger.Info("got message: %s", string(msg.GetData()))
-		opCode := OpCode(msg.GetOpCode()) // TODO: convert properly
+		opCode, err := opcode.NewOpCode(msg.GetOpCode())
+		if err != nil {
+			logger.Error("invalid op code: %v", err)
+			return nil
+		}
 
-		if err := HandleOpCode(opCode, dispatcher, msg, matchState); err != nil {
+		if err := opcode.Handle(opCode, dispatcher, msg, matchState); err != nil {
 			logger.Error(err.Error())
 			return nil
 		}
+	}
+	
+	for _, am := range matchState.GameManagers {
+		am.Tick()
+	}
+	
+	type resp struct{
+		Units map[string][]*unit.Unit
+	}
+	r := resp{
+		Units: make(map[string][]*unit.Unit),
+	}
+	
+	for _, presence := range matchState.Presences {
+		userID := presence.GetUserId()
+		for _, u := range matchState.GameManagers[userID].Units {
+			r.Units[userID] = append(r.Units[userID], u)
+		}
+	}
+
+	b, err := json.Marshal(r)
+	if err != nil {
+		return fmt.Errorf("can't unmarshal state: %w", err)
+	}
+
+	x := slices.Collect(maps.Values(matchState.Presences))
+
+	if err := dispatcher.BroadcastMessage(1, b, x, nil, true); err != nil {
+		return fmt.Errorf("can't broadcast message state: %w", err)
 	}
 
 	return matchState
@@ -127,7 +180,7 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
 	initializer.RegisterBeforeRt("MatchmakerAdd", func(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, in *rtapi.Envelope) (*rtapi.Envelope, error) {
 		message, ok := in.Message.(*rtapi.Envelope_MatchmakerAdd)
 		if !ok {
-			return nil, runtime.NewError("internal server error", int(codes.Internal))
+			return nil, runtime.NewError("internal server error", 13)
 		}
 
 		message.MatchmakerAdd.Query = "*"
@@ -140,7 +193,7 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
 	if err := initializer.RegisterMatchmakerMatched(func(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, entries []runtime.MatchmakerEntry) (string, error) {
 		matchID, err := nk.MatchCreate(ctx, "achikaps", map[string]interface{}{"players": entries})
 		if err != nil {
-			return "", runtime.NewError("unable to create match", int(codes.Internal))
+			return "", runtime.NewError("unable to create match", 13)
 		}
 
 		return matchID, nil

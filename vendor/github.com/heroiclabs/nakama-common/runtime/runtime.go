@@ -317,6 +317,10 @@ NOTE: You must not cache the reference to this and reuse it as a later point as 
 */
 type Initializer interface {
 	/*
+		GetConfig returns a read only subset of the Nakama configuration values.
+	*/
+	GetConfig() (Config, error)
+	/*
 		RegisterRpc registers a function with the given ID. This ID can be used within client code to send an RPC message to
 		execute the function and return the result. Results are always returned as a JSON string (or optionally empty string).
 
@@ -973,6 +977,13 @@ type Notification struct {
 	Persistent bool
 }
 
+type NotificationUpdate struct {
+	Id      string
+	Subject *string
+	Content map[string]any
+	Sender  *string
+}
+
 type WalletUpdate struct {
 	UserID    string
 	Changeset map[string]int64
@@ -1058,6 +1069,7 @@ type NakamaModule interface {
 
 	UsersGetId(ctx context.Context, userIDs []string, facebookIDs []string) ([]*api.User, error)
 	UsersGetUsername(ctx context.Context, usernames []string) ([]*api.User, error)
+	UsersGetFriendStatus(ctx context.Context, userID string, userIDs []string) ([]*api.Friend, error)
 	UsersGetRandom(ctx context.Context, count int) ([]*api.User, error)
 	UsersBanId(ctx context.Context, userIDs []string) error
 	UsersUnbanId(ctx context.Context, userIDs []string) error
@@ -1109,6 +1121,7 @@ type NakamaModule interface {
 	NotificationsList(ctx context.Context, userID string, limit int, cursor string) ([]*api.Notification, string, error)
 	NotificationsSend(ctx context.Context, notifications []*NotificationSend) error
 	NotificationSendAll(ctx context.Context, subject string, content map[string]interface{}, code int, persistent bool) error
+	NotificationsUpdate(ctx context.Context, updates ...NotificationUpdate) error
 	NotificationsDelete(ctx context.Context, notifications []*NotificationDelete) error
 	NotificationsGetId(ctx context.Context, userID string, ids []string) ([]*Notification, error)
 	NotificationsDeleteId(ctx context.Context, userID string, ids []string) error
@@ -1183,9 +1196,10 @@ type NakamaModule interface {
 	GroupsGetRandom(ctx context.Context, count int) ([]*api.Group, error)
 	UserGroupsList(ctx context.Context, userID string, limit int, state *int, cursor string) ([]*api.UserGroupList_UserGroup, string, error)
 
+	FriendMetadataUpdate(ctx context.Context, userID string, friendUserId string, metadata map[string]any) error
 	FriendsList(ctx context.Context, userID string, limit int, state *int, cursor string) ([]*api.Friend, string, error)
 	FriendsOfFriendsList(ctx context.Context, userID string, limit int, cursor string) ([]*api.FriendsOfFriendsList_FriendOfFriend, string, error)
-	FriendsAdd(ctx context.Context, userID string, username string, ids []string, usernames []string) error
+	FriendsAdd(ctx context.Context, userID string, username string, ids []string, usernames []string, metadata map[string]any) error
 	FriendsDelete(ctx context.Context, userID string, username string, ids []string, usernames []string) error
 	FriendsBlock(ctx context.Context, userID string, username string, ids []string, usernames []string) error
 
@@ -1200,6 +1214,9 @@ type NakamaModule interface {
 	ChannelMessageUpdate(ctx context.Context, channelID, messageID string, content map[string]interface{}, senderId, senderUsername string, persist bool) (*rtapi.ChannelMessageAck, error)
 	ChannelMessageRemove(ctx context.Context, channelId, messageId string, senderId, senderUsername string, persist bool) (*rtapi.ChannelMessageAck, error)
 	ChannelMessagesList(ctx context.Context, channelId string, limit int, forward bool, cursor string) (messages []*api.ChannelMessage, nextCursor string, prevCursor string, err error)
+
+	StatusFollow(sessionID string, userIDs []string) error
+	StatusUnfollow(sessionID string, userIDs []string) error
 
 	GetSatori() Satori
 	GetFleetManager() FleetManager
@@ -1316,10 +1333,10 @@ type FleetManagerInitializer interface {
 Satori runtime integration definitions.
 */
 type Satori interface {
-	Authenticate(ctx context.Context, id string, defaultProperties, customProperties map[string]string, ipAddress ...string) error
+	Authenticate(ctx context.Context, id string, defaultProperties, customProperties map[string]string, noSession bool, ipAddress ...string) (*Properties, error)
 	PropertiesGet(ctx context.Context, id string) (*Properties, error)
 	PropertiesUpdate(ctx context.Context, id string, properties *PropertiesUpdate) error
-	EventsPublish(ctx context.Context, id string, events []*Event) error
+	EventsPublish(ctx context.Context, id string, events []*Event, ipAddress ...string) error
 	ExperimentsList(ctx context.Context, id string, names ...string) (*ExperimentList, error)
 	FlagsList(ctx context.Context, id string, names ...string) (*FlagList, error)
 	LiveEventsList(ctx context.Context, id string, names ...string) (*LiveEventList, error)

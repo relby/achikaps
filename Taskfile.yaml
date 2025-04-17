@@ -1,0 +1,7 @@
+version: '3'
+
+tasks:
+  build:
+    desc: Build modules
+    cmds:
+      - go build --trimpath --mod=vendor --buildmode=plugin -o ./backend.so
