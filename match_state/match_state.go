@@ -22,6 +22,8 @@ type State struct {
 	NextNodeIDs map[string]node.ID
 	Units map[string][]*unit.Unit
 	Materials map[string][]*material.Material
+	
+	ClientUpdates map[string][]*unit_action.UnitAction
 }
 
 func (s *State) BuildNode(userID string, fromID node.ID, typ node.Type, pos vec2.Vec2, data any) error {
@@ -76,16 +78,23 @@ func (s *State) Tick() {
 	for userID, units := range s.Units {
 		for _, u := range units {
 			if u.Actions.Len() == 0 {
-				ok := s.pollActions(userID, u)
-				if !ok {
-					continue
-				}
+				s.pollActions(userID, u)
+			}
+		}
+	}
+		
+	for userID, units := range s.Units {
+		for _, u := range units {
+			if u.Actions.Len() == 0 {
+				continue
 			}
 			
-			// Assert that there's is at least one action
-			assert.NotEquals(u.Actions.Len(), 0)
-			
 			action := u.Actions.Front()
+			
+			// Action is about to start, add client updates
+			if !action.IsStarted {
+				s.ClientUpdates[userID] = append(s.ClientUpdates[userID], action)
+			}
 
 			done := s.executeUnitAction(userID, u, action)
 			if done {
@@ -321,6 +330,10 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 }
 
 func (s *State) executeUnitAction(userID string, u *unit.Unit, action *unit_action.UnitAction) bool {
+	if !action.IsStarted {
+		action.IsStarted = true
+	}
+
 	switch action.Type {
 	case unit_action.MovingType:
 		data, ok := action.Data.(*unit_action.MovingData)

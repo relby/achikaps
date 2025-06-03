@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"math"
 
 	"github.com/heroiclabs/nakama-common/rtapi"
@@ -13,6 +15,7 @@ import (
 	"github.com/relby/achikaps/node"
 	"github.com/relby/achikaps/opcode"
 	"github.com/relby/achikaps/unit"
+	"github.com/relby/achikaps/unit_action"
 	"github.com/relby/achikaps/vec2"
 )
 
@@ -38,6 +41,7 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 		NextNodeIDs: make(map[string]node.ID, len(players)),
 		Units: make(map[string][]*unit.Unit),
 		Materials: make(map[string][]*material.Material),
+		ClientUpdates: make(map[string][]*unit_action.UnitAction),
 	}
 	
 	for i, p := range players {
@@ -130,31 +134,27 @@ func (m *Match) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB
 	
 	matchState.Tick()
 	
-	// TODO: Finish this
-	// type resp struct{
-	// 	Units map[string][]*unit.Unit
-	// }
-	// r := resp{
-	// 	Units: make(map[string][]*unit.Unit),
-	// }
-	
-	// for _, presence := range matchState.Presences {
-	// 	userID := presence.GetUserId()
-	// 	for _, u := range matchState.Units {
-	// 		r.Units[userID] = append(r.Units[userID], u)
-	// 	}
-	// }
+	for _, p := range matchState.Presences {
+		userID := p.GetUserId()
+		
+		actions := matchState.ClientUpdates[userID]
+		if len(actions) == 0 {
+			continue
+		}
+		
+		for _, a := range actions {
+			b, err := json.Marshal(a)
+			if err != nil {
+				return fmt.Errorf("can't unmarshal state: %w", err)
+			}
 
-	// b, err := json.Marshal(r)
-	// if err != nil {
-	// 	return fmt.Errorf("can't unmarshal state: %w", err)
-	// }
-
-	// x := slices.Collect(maps.Values(matchState.Presences))
-
-	// if err := dispatcher.BroadcastMessage(3, b, x, nil, true); err != nil {
-	// 	return fmt.Errorf("can't broadcast message state: %w", err)
-	// }
+			if err := dispatcher.BroadcastMessage(int64(opcode.UnitActionExecute), b, nil, p, true); err != nil {
+				return fmt.Errorf("can't broadcast message state: %w", err)
+			}
+		}
+		
+		matchState.ClientUpdates[userID] = matchState.ClientUpdates[userID][:0]
+	}
 
 	return matchState
 }

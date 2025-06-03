@@ -17,11 +17,12 @@ const (
 
 type UnitAction struct {
 	Type Type
+	IsStarted bool
 	Data any
 }
 
 func new(typ Type, data any) *UnitAction {
-	return &UnitAction{typ, data}
+	return &UnitAction{typ, false, data}
 }
 
 type MovingData struct {

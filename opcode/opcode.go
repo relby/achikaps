@@ -20,9 +20,11 @@ func NewOpCode(v int64) (OpCode, error) {
 	return 0, errors.New("invalid op code")
 }
 
+// TODO: Refactor all opcodes
 const (
 	GetState OpCode = iota + 1
 	BuildNode
+	UnitActionExecute
 )
 
 type Handler func(runtime.MatchDispatcher, runtime.MatchData, *match_state.State) error

@@ -3,6 +3,7 @@ module github.com/relby/achikaps
 go 1.23.5
 
 require (
+	github.com/davecgh/go-spew v1.1.1
 	github.com/dominikbraun/graph v0.23.0
 	github.com/gammazero/deque v1.0.0
 	github.com/heroiclabs/nakama-common v1.36.0

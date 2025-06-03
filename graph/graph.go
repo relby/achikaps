@@ -68,6 +68,13 @@ func (g *Graph) AdjacencyMap() map[node.ID]map[node.ID]Edge {
 	return am
 }
 
+func (g *Graph) Edges() []Edge {
+	es, err := g.g.Edges()
+	assert.NoError(err)
+	
+	return es
+}
+
 func (g *Graph) AddNodeFrom(n1, n2 *node.Node) (error) {
 	if err := g.g.AddVertex(n2); err != nil {
 		return fmt.Errorf("can't add vertex to the graph: %w", err)
@@ -127,34 +134,28 @@ func (g *Graph) FindShortestPath(source, target *node.Node) []*node.Node {
 
 // NodeIntersectsAny checks if the given node intersects with any existing nodes or edges in the graph.
 // It returns true if an intersection is found, false otherwise.
-// The function performs three types of intersection checks:
-// 1. Node-to-node intersection with source nodes of edges
-// 2. Node-to-node intersection with target nodes of edges
+// The function performs two types of intersection checks:
+// 1. Node-to-node intersection
 // 3. Node-to-edge intersection by calculating the minimum distance between the node and each edge
 func (g *Graph) NodeIntersectsAny(n *node.Node) bool {
-	edges, err := g.g.Edges()
-	assert.NoError(err)
+	nodes := g.Nodes()
 	
-	// Check if the node intersects with any existing nodes or edges in the graph
+	for _, graphNode := range nodes {
+		if graphNode.Intersects(n) {
+			return true
+		}
+	}
+	
+	edges := g.Edges()
+	
 	for _, edge := range edges {
-		// Get the source node of the current edge
 		sourceNode, err := g.Node(edge.Source)
 		assert.NoError(err)
 		
-		// Check if the node intersects with the source node (excluding self-intersection)
-		if sourceNode.ID != n.ID && sourceNode.Intersects(n) {
-			return true
-		}
-
 		// Get the target node of the current edge
 		targetNode, err := g.Node(edge.Target)
 		assert.NoError(err)
 
-		// Check if the node intersects with the target node (excluding self-intersection)
-		if targetNode.ID != n.ID && targetNode.Intersects(n) {
-			return true
-		}
-		
 		// Check if the node intersects with the edge itself
 		// Get positions for calculations
 		p := n.Position   // Position of the node we're checking
@@ -189,9 +190,9 @@ func (g *Graph) NodeIntersectsAny(n *node.Node) bool {
 		if distance < n.Radius {
 			return true
 		}
+
 	}
 	
-	// No intersections found
 	return false
 }
 
