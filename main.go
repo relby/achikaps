@@ -47,6 +47,9 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 			node.ID(1),
 			onCircle(i, len(players), StartRadius),
 		)
+		// TODO: It's a hack to make the root node built, we need to find a better way to do this
+		root.BuildProgress = 1
+
 		g := graph.New(root)
 
 		state.Graphs[userID] = g
@@ -55,6 +58,9 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 		
 		state.Units[userID] = []*unit.Unit{
 			unit.NewIdle(root),
+			unit.NewProduction(root),
+			unit.NewBuilder(root),
+			unit.NewTranport(root, unit.NewTransportData(nil)),
 		}
 		
 		state.Materials[userID] = nil

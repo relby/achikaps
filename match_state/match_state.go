@@ -106,41 +106,41 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 
 	userMaterials, ok := s.Materials[userID]
 	assert.True(ok)
+	
+	// Unit should always have a node when polling for actions
+	assert.NotNil(u.Node)
 
 	am := userGraph.AdjacencyMap()
 	adjacentNodeMap, ok := am[u.Node.ID]
 	assert.True(ok)
 	
-	getRandomAdjacentNode := func () *node.Node {
+	getRandomAdjacentNode := func() (*node.Node, bool) {
 		adjacentNodes := make([]node.ID, 0, len(adjacentNodeMap))
 		for nodeID := range adjacentNodeMap {
 			adjacentNodes = append(adjacentNodes, nodeID)
 		}
 		
 		// Filter out nodes that are not built yet
-		filteredNodes := make([]*node.Node, 0, len(adjacentNodes))
+		builtNodes := make([]*node.Node, 0, len(adjacentNodes))
 		for _, nID := range adjacentNodes {
 			n, err := userGraph.Node(nID)
 			assert.NoError(err)
 
 			if n.IsBuilt() {
-				filteredNodes = append(filteredNodes, n)
+				builtNodes = append(builtNodes, n)
 			}
 		}
 		
-		// If there are no nodes do nothing
-		if len(filteredNodes) == 0 {
-			return nil
+		if len(builtNodes) == 0 {
+			return nil, false
 		}
 
-		randomNodeID := adjacentNodes[rand.Intn(len(adjacentNodes))]
-		randomNode, err := userGraph.Node(randomNodeID)
-		assert.NoError(err)
+		randomNode := builtNodes[rand.Intn(len(builtNodes))]
 
-		return randomNode
+		return randomNode, true
 	}
 	
-	findShortestPathOfMultiple := func (ns []*node.Node) ([]*node.Node, *node.Node) {
+	findShortestPathOfMultiple := func(ns []*node.Node) ([]*node.Node, *node.Node) {
 		var path []*node.Node
 		var finalNode *node.Node
 		pathDist := math.MaxFloat64
@@ -167,16 +167,15 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 
 	switch u.Type {
 	case unit.IdleType:
-		n := getRandomAdjacentNode()
+		n, ok := getRandomAdjacentNode()
 		
-		// No node found
-		if n == nil {
+		if !ok {
 			return false
 		}
 
 		u.Actions.PushBack(unit_action.NewMoving(unit.DefaultSpeed, u.Node, n))
-
 		return true
+
 	case unit.ProductionType:
 		// If unit is not in the production node find the node with the least amount of units
 		if u.Node.Type != node.ProductionType {
@@ -184,8 +183,8 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 			
 			if len(prodNodes) == 0 {
 				// Move in a random direction like IdleType units, just to be dynamic
-				n := getRandomAdjacentNode()
-				if n == nil {
+				n, ok := getRandomAdjacentNode()
+				if !ok {
 					return false
 				}
 				
@@ -220,7 +219,6 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 		}
 
 		u.Actions.PushBack(unit_action.NewProduction())
-
 		return true
 
 	case unit.BuilderType:
@@ -229,12 +227,13 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 			
 			if len(buildingNodes) == 0 {
 				// Move in a random direction like IdleType units, just to be dynamic
-				n := getRandomAdjacentNode()
-				if n == nil {
+				n, ok := getRandomAdjacentNode()
+				if !ok {
 					return false
 				}
 				
 				u.Actions.PushBack(unit_action.NewMoving(unit.DefaultSpeed, u.Node, n))
+				return true
 			}
 			
 			
@@ -248,8 +247,8 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 		}
 		
 		u.Actions.PushBack(unit_action.NewBuilding())
-
 		return true
+
 	case unit.TransportType:
 		data, ok := u.Data.(*unit.TransportData)
 		assert.True(ok)
@@ -259,7 +258,7 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 				Node *node.Node
 				Materials []*material.Material
 			}
-			nMap := make(map[node.ID]NodeWithMaterials, userGraph.NodeCount())
+			nwmMap := make(map[node.ID]NodeWithMaterials, userGraph.NodeCount())
 
 			// Add nodes with non reserved materials
 			for _, m := range userMaterials {
@@ -268,23 +267,24 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 					continue
 				}
 
+				// Material must have a node if not reserved
 				assert.NotNil(m.Node)
 
-				nMap[m.Node.ID] = NodeWithMaterials{
+				nwmMap[m.Node.ID] = NodeWithMaterials{
 					m.Node,
-					append(nMap[m.Node.ID].Materials, m),
+					append(nwmMap[m.Node.ID].Materials, m),
 				}
 			}
 			
-			ns := make([]*node.Node, 0, len(nMap))
-			for _, nwm := range nMap {
+			ns := make([]*node.Node, 0, len(nwmMap))
+			for _, nwm := range nwmMap {
 				ns = append(ns, nwm.Node)
 			}
 			
 			if len(ns) == 0 {
 				// Move in a random direction like IdleType units, just to be dynamic
-				n := getRandomAdjacentNode()
-				if n == nil {
+				n, ok := getRandomAdjacentNode()
+				if !ok {
 					return false
 				}
 				
@@ -295,7 +295,7 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 
 			shortestPath, finalNode := findShortestPathOfMultiple(ns)
 			
-			ms := nMap[finalNode.ID].Materials
+			ms := nwmMap[finalNode.ID].Materials
 			m := ms[rand.Intn(len(ms))]
 
 			m.IsReserved = true
