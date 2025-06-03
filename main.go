@@ -38,6 +38,7 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 		Presences:   make(map[string]runtime.Presence, len(players)),
 		Graphs: make(map[string]*graph.Graph, len(players)),
 		NextNodeIDs: make(map[string]node.ID, len(players)),
+		NextUnitIDs: make(map[string]unit.ID),
 		Units: make(map[string][]*unit.Unit, len(players)),
 		Materials: make(map[string][]*material.Material, len(players)),
 		ClientUpdates: make(map[string][]*unit_action.UnitAction, len(players)),
@@ -60,11 +61,13 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 		state.NextNodeIDs[userID] = node.ID(2)
 		
 		state.Units[userID] = []*unit.Unit{
-			unit.NewIdle(root),
-			unit.NewProduction(root),
-			unit.NewBuilder(root),
-			unit.NewTranport(root, unit.NewTransportData(nil)),
+			unit.NewIdle(1, root),
+			unit.NewProduction(2, root),
+			unit.NewBuilder(3, root),
+			unit.NewTranport(4, root, unit.NewTransportData(nil)),
 		}
+		
+		state.NextUnitIDs[userID] = unit.ID(5)
 		
 		for range 20 {
 			state.Materials[userID] = append(state.Materials[userID], material.New(material.GrassType, root))

@@ -2,6 +2,7 @@ package unit
 
 import (
 	"encoding/json"
+	"errors"
 
 	"github.com/gammazero/deque"
 	"github.com/relby/achikaps/material"
@@ -13,6 +14,15 @@ const (
 	DefaultSpeed = 2
 )
 
+type ID uint
+
+func NewID(v uint) (ID, error) {
+	if v == 0 {
+		return 0, errors.New("invalid node id")
+	}
+	return ID(v), nil
+}
+
 type Type uint
 
 const (
@@ -21,16 +31,29 @@ const (
 	BuilderType
 	TransportType
 )
+func NewType(v uint) (Type, error) {
+	switch v := Type(v); v {
+		case IdleType,
+			ProductionType,
+			BuilderType,
+			TransportType:
+			return v, nil
+	}
+	
+	return 0, errors.New("invalid unit type")
+}
 
 type Unit struct {
+	ID ID
 	Type Type
 	Node *node.Node
 	Data any
 	Actions deque.Deque[*unit_action.UnitAction]
 }
 
-func new(typ Type, n *node.Node, data any) *Unit {
+func new(id ID, typ Type, n *node.Node, data any) *Unit {
 	return &Unit{
+		id,
 		typ,
 		n,
 		data,
@@ -38,16 +61,17 @@ func new(typ Type, n *node.Node, data any) *Unit {
 	}
 }
 
-func NewIdle(n *node.Node) *Unit {
-	return new(IdleType, n, nil)
+
+func NewIdle(id ID, n *node.Node) *Unit {
+	return new(id, IdleType, n, nil)
 }
 
-func NewProduction(n *node.Node) *Unit {
-	return new(ProductionType, n, nil)
+func NewProduction(id ID, n *node.Node) *Unit {
+	return new(id, ProductionType, n, nil)
 }
 
-func NewBuilder(n *node.Node) *Unit {
-	return new(BuilderType, n, nil)
+func NewBuilder(id ID, n *node.Node) *Unit {
+	return new(id, BuilderType, n, nil)
 }
 
 type TransportData struct {
@@ -58,8 +82,8 @@ func NewTransportData(m *material.Material) *TransportData {
 	return &TransportData{m}
 }
 
-func NewTranport(n *node.Node, data *TransportData) *Unit {
-	return new(TransportType, n, data)
+func NewTranport(id ID, n *node.Node, data *TransportData) *Unit {
+	return new(id, TransportType, n, data)
 }
 
 func (u *Unit) MarshalJSON() ([]byte, error) {

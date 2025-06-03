@@ -27,6 +27,18 @@ const (
 	DefenseType
 )
 
+func NewType(v uint) (Type, error) {
+	switch v := Type(v); v {
+	case TransitType,
+		ProductionType,
+		StorageType,
+		DefenseType:
+		return v, nil
+	}
+
+	return 0, errors.New("invalid node type")
+}
+
 type Name uint
 
 const (
@@ -44,18 +56,6 @@ const (
 	GuardOutpostName
 	AmberTurretName
 )
-
-func NewType(v uint) (Type, error) {
-	switch v := Type(v); v {
-	case TransitType,
-		ProductionType,
-		StorageType,
-		DefenseType:
-		return v, nil
-	}
-
-	return 0, errors.New("invalid node type")
-}
 
 type ProductionTypeData uint
 const (

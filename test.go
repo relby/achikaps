@@ -43,6 +43,7 @@ func main() {
 		Presences: make(map[string]runtime.Presence),
 		Graphs: make(map[string]*graph.Graph),
 		NextNodeIDs: make(map[string]node.ID),
+		NextUnitIDs: make(map[string]unit.ID),
 		Units: make(map[string][]*unit.Unit),
 		Materials: make(map[string][]*material.Material),
 		
@@ -65,11 +66,13 @@ func main() {
 	state.NextNodeIDs[id] = node.ID(2)
 	
 	state.Units[id] = []*unit.Unit{
-		unit.NewIdle(root),
-		unit.NewProduction(root),
-		unit.NewBuilder(root),
-		unit.NewTranport(root, unit.NewTransportData(nil)),
+		unit.NewIdle(1, root),
+		unit.NewProduction(2, root),
+		unit.NewBuilder(3, root),
+		unit.NewTranport(4, root, unit.NewTransportData(nil)),
 	}
+	
+	state.NextUnitIDs[id] = unit.ID(5)
 	
 	state.Materials[id] = nil
 

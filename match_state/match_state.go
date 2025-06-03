@@ -20,6 +20,7 @@ type State struct {
 	Presences   map[string]runtime.Presence
 	Graphs map[string]*graph.Graph
 	NextNodeIDs map[string]node.ID
+	NextUnitIDs map[string]unit.ID
 	Units map[string][]*unit.Unit
 	Materials map[string][]*material.Material
 	
@@ -75,6 +76,66 @@ func (s *State) BuildNode(userID string, fromID node.ID, typ node.Type, pos vec2
 	s.NextNodeIDs[userID] += 1
 
 	return toNode, nil
+}
+
+func (s *State) ChangeUnitType(userID string, id unit.ID, typ unit.Type) (*unit.Unit, error) {
+	userUnits, ok := s.Units[userID]
+	assert.True(ok)
+	
+	var u *unit.Unit
+	for _, uu := range userUnits {
+		if uu.ID == id {
+			u = uu
+			break
+		}
+	}
+	
+	if u == nil {
+		return nil, fmt.Errorf("unit not found")
+	}
+	
+	// Do nothing if the type is the same
+	if u.Type == typ {
+		return u, nil
+	}
+	
+	// If we change the type of the transport unit
+	// we should ensure that material is not lost
+	switch u.Type {
+	case unit.TransportType:
+		uData, ok := u.Data.(*unit.TransportData)
+		assert.True(ok)
+		
+		if uData.Material != nil {
+			assert.True(uData.Material.Node == nil)
+
+			if u.Node != nil {
+				uData.Material.Node = u.Node
+			} else {
+				// In here unit is moving
+				assert.NotEquals(u.Actions.Len(), 0)
+
+				movingAction := u.Actions.Front()
+				assert.Equals(movingAction.Type, unit_action.MovingType)
+				
+				movingActionData, ok := movingAction.Data.(*unit_action.MovingData)
+				assert.True(ok)
+
+				uData.Material.Node = movingActionData.FromNode
+			}
+		}
+	}
+	
+	switch typ {
+	case unit.TransportType:
+		u.Data = unit.NewTransportData(nil)
+	default:
+		u.Data = nil
+	}
+	
+	u.Type = typ
+	
+	return u, nil
 }
 
 func (s *State) Tick() {
@@ -370,7 +431,12 @@ func (s *State) executeUnitAction(userID string, u *unit.Unit, action *unit_acti
 			switch data {
 			// TODO
 			case node.IncubatorProductionTypeData:
-				s.Units[userID] = append(s.Units[userID], unit.NewIdle(u.Node))
+				unitID, ok := s.NextUnitIDs[userID]
+				assert.True(ok)
+
+				s.Units[userID] = append(s.Units[userID], unit.NewIdle(unitID, u.Node))
+
+				s.NextUnitIDs[userID] += 1
 			case node.WellProductionTypeData:
 				s.Materials[userID] = append(s.Materials[userID], material.New(material.DewType, u.Node))
 			default:
