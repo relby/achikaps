@@ -13,7 +13,7 @@ type OpCode int64
 
 func NewOpCode(v int64) (OpCode, error) {
 	switch v := OpCode(v); v {
-	case GetState, BuildNode:
+	case InitialState, BuildNode, UnitActionExecute:
 		return v, nil
 	}
 
@@ -22,7 +22,7 @@ func NewOpCode(v int64) (OpCode, error) {
 
 // TODO: Refactor all opcodes
 const (
-	GetState OpCode = iota + 1
+	InitialState OpCode = iota + 1
 	BuildNode
 	UnitActionExecute
 )
@@ -30,7 +30,6 @@ const (
 type Handler func(runtime.MatchDispatcher, runtime.MatchData, *match_state.State) error
 
 var Handlers = map[OpCode]Handler{
-	GetState:  GetStateHandler,
 	BuildNode: BuildNodeHandler,
 }
 

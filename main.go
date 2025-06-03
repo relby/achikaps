@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"math"
 
 	"github.com/heroiclabs/nakama-common/rtapi"
@@ -39,9 +38,9 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 		Presences:   make(map[string]runtime.Presence, len(players)),
 		Graphs: make(map[string]*graph.Graph, len(players)),
 		NextNodeIDs: make(map[string]node.ID, len(players)),
-		Units: make(map[string][]*unit.Unit),
-		Materials: make(map[string][]*material.Material),
-		ClientUpdates: make(map[string][]*unit_action.UnitAction),
+		Units: make(map[string][]*unit.Unit, len(players)),
+		Materials: make(map[string][]*material.Material, len(players)),
+		ClientUpdates: make(map[string][]*unit_action.UnitAction, len(players)),
 	}
 	
 	for i, p := range players {
@@ -67,7 +66,15 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 			unit.NewTranport(root, unit.NewTransportData(nil)),
 		}
 		
-		state.Materials[userID] = nil
+		for range 20 {
+			state.Materials[userID] = append(state.Materials[userID], material.New(material.GrassType, root))
+		}
+		for range 6 {
+			state.Materials[userID] = append(state.Materials[userID], material.New(material.SandType, root))
+		}
+		for range 2 {
+			state.Materials[userID] = append(state.Materials[userID], material.New(material.DewType, root))
+		}
 	}
 
 	tickRate := 5 // 1 tick per second = 1 MatchLoop func invocations per second
@@ -91,6 +98,33 @@ func (m *Match) MatchJoin(ctx context.Context, logger runtime.Logger, db *sql.DB
 	for _, p := range presences {
 		userID := p.GetUserId()
 		matchState.Presences[userID] = p
+	}
+
+	type initialStateResp struct {
+		Nodes map[string][]*node.Node
+		Units map[string][]*unit.Unit
+		Materials map[string][]*material.Material
+	}
+
+	resp := &initialStateResp{}
+
+	resp.Nodes = make(map[string][]*node.Node, len(matchState.Graphs))
+	for uID, g := range matchState.Graphs {
+		resp.Nodes[uID] = g.Nodes()
+	}
+
+	resp.Units = matchState.Units
+	resp.Materials = matchState.Materials
+
+	respBytes, err := json.Marshal(resp)
+	if err != nil {
+		logger.Error("can't marshal state: %w", err)
+		return nil
+	}
+
+	if err := dispatcher.BroadcastMessage(int64(opcode.InitialState), respBytes, presences, nil, true); err != nil {
+		logger.Error("can't broadcast message state: %w", err)
+		return nil
 	}
 
 	return matchState
@@ -145,11 +179,13 @@ func (m *Match) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB
 		for _, a := range actions {
 			b, err := json.Marshal(a)
 			if err != nil {
-				return fmt.Errorf("can't unmarshal state: %w", err)
+				logger.Error("can't unmarshal state: %w", err)
+				return nil
 			}
 
 			if err := dispatcher.BroadcastMessage(int64(opcode.UnitActionExecute), b, nil, p, true); err != nil {
-				return fmt.Errorf("can't broadcast message state: %w", err)
+				logger.Error("can't broadcast message state: %w", err)
+				return nil
 			}
 		}
 		

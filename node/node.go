@@ -27,6 +27,24 @@ const (
 	DefenseType
 )
 
+type Name uint
+
+const (
+	SandTransitName Name = iota + 1
+	GrassFieldName
+	WellName
+	SeedStorageName
+	AphidDistillationName
+	RawMaterialVatName
+	ChitinPressName
+	EggFarmName
+	PheromoneMineName
+	IncubatorName
+	GeneticHatcheryName
+	GuardOutpostName
+	AmberTurretName
+)
+
 func NewType(v uint) (Type, error) {
 	switch v := Type(v); v {
 	case TransitType,
