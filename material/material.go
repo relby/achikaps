@@ -5,7 +5,10 @@ import "github.com/relby/achikaps/node"
 type Type uint
 
 const (
-	TODOType Type = iota + 1
+	GrassType Type = iota + 1
+	SandType
+	DewType
+	SeedType
 )
 
 type Material struct {

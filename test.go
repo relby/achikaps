@@ -75,7 +75,7 @@ func main() {
 		return
 	}
 
-	if err := state.BuildNode(id, root.ID, node.ProductionType, vec2.New(-100, -100), node.UnitProductionTypeData); err != nil {
+	if err := state.BuildNode(id, root.ID, node.ProductionType, vec2.New(-100, -100), node.WellProductionTypeData); err != nil {
 		fmt.Println(err)
 		return
 	}

@@ -53,6 +53,10 @@ func (s *State) BuildNode(userID string, fromID node.ID, typ node.Type, pos vec2
 	default:
 		assert.Unreachable()
 	}
+	
+	if fromNode.DistanceTo(toNode) > 10 * node.DefaultRadius {
+		return fmt.Errorf("new node is too far")
+	}
 
 	for _, g := range s.Graphs {
 		if g.NodeIntersectsAny(toNode) {
@@ -62,7 +66,6 @@ func (s *State) BuildNode(userID string, fromID node.ID, typ node.Type, pos vec2
 		if g.EdgeIntersectsAny(fromNode, toNode) {
 			return fmt.Errorf("new edge intersects the graph")
 		}
-		
 	}
 
 	if err := userGraph.AddNodeFrom(fromNode, toNode); err != nil {
@@ -364,10 +367,13 @@ func (s *State) executeUnitAction(userID string, u *unit.Unit, action *unit_acti
 			assert.True(ok)
 			
 			switch data {
-			case node.UnitProductionTypeData:
-				s.Units[userID] = append(s.Units[userID], unit.NewIdle(u.Node))
-			case node.TODOMaterialProductionTypeData:
-				s.Materials[userID] = append(s.Materials[userID], material.New(material.TODOType, u.Node))
+			// TODO
+			// case node.IncubatorProductionTypeData:
+			// 	s.Units[userID] = append(s.Units[userID], unit.NewIdle(u.Node))
+			// case node.WellProductionTypeData:
+			// 	s.Materials[userID] = append(s.Materials[userID], material.New(material.TODOType, u.Node))
+			// case node.SeedStorageProductionTypeData:
+			// 	s.Materials
 			default:
 				panic("unreachable")
 			}

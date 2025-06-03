@@ -6,6 +6,9 @@ import (
 	"github.com/relby/achikaps/vec2"
 )
 
+// TODO: Configure that
+const DefaultRadius = 10.0
+
 type ID uint
 
 func NewID(v uint) (ID, error) {
@@ -36,17 +39,11 @@ func NewType(v uint) (Type, error) {
 	return 0, errors.New("invalid node type")
 }
 
-var TypeRadiuses = map[Type]float64{
-	TransitType: 1,
-	ProductionType: 2,
-	StorageType: 3,
-	DefenseType: 1,
-}
-
 type ProductionTypeData uint
 const (
-	UnitProductionTypeData ProductionTypeData = iota + 1
-	TODOMaterialProductionTypeData
+	WellProductionTypeData ProductionTypeData = iota + 1
+	SeedStorageProductionTypeData
+	IncubatorProductionTypeData
 )
 
 type Node struct {
@@ -64,7 +61,7 @@ func new(id ID, typ Type, pos vec2.Vec2, data any) *Node {
 		typ,
 		data,
 		pos,
-		TypeRadiuses[typ],
+		DefaultRadius,
 		0,
 	}
 }
