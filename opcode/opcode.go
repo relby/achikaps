@@ -40,7 +40,7 @@ type errorResp struct {
 
 func sendOkResp(dispatcher runtime.MatchDispatcher, opCode OpCode, userID string, state *match_state.State) error {
 	resp, _ := json.Marshal(okResp{})
-	if err := dispatcher.BroadcastMessage(int64(BuildNode), resp, nil, state.Presences[userID], true); err != nil {
+	if err := dispatcher.BroadcastMessage(int64(opCode), resp, nil, state.Presences[userID], true); err != nil {
 		return fmt.Errorf("can't broadcast message: %w", err)
 	}
 

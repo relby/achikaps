@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 
 	"github.com/gammazero/deque"
+	"github.com/relby/achikaps/material"
 	"github.com/relby/achikaps/node"
+	"github.com/relby/achikaps/unit_action"
 )
 
 const (
@@ -17,20 +19,47 @@ const (
 	IdleType Type = iota + 1
 	ProductionType
 	BuilderType
+	TransportType
 )
 
 type Unit struct {
 	Type Type
 	Node *node.Node
-	Actions deque.Deque[*Action]
+	Data any
+	Actions deque.Deque[*unit_action.UnitAction]
 }
 
-func New(typ Type, n *node.Node) *Unit {
+func new(typ Type, n *node.Node, data any) *Unit {
 	return &Unit{
 		typ,
 		n,
-		deque.Deque[*Action]{},
+		data,
+		deque.Deque[*unit_action.UnitAction]{},
 	}
+}
+
+func NewIdle(n *node.Node) *Unit {
+	return new(IdleType, n, nil)
+}
+
+func NewProduction(n *node.Node) *Unit {
+	return new(ProductionType, n, nil)
+}
+
+func NewBuilder(n *node.Node) *Unit {
+	return new(BuilderType, n, nil)
+}
+
+type TransportData struct {
+	Material *material.Material
+}
+
+func NewTransportData(m *material.Material) *TransportData {
+	return &TransportData{m}
+}
+
+func NewTranport(n *node.Node, data *TransportData) *Unit {
+	return new(TransportType, n, data)
 }
 
 func (u *Unit) MarshalJSON() ([]byte, error) {

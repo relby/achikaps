@@ -18,11 +18,17 @@
 {
     "Type": uint // 1 - Idle, 2 - Production, 3 - Builder
     "Node": Node // см. выше
-    "Action": Action // см. ниже
+    "Action": UnitAction // см. ниже
+    "Data": any
+}
+
+// TransportData
+{
+    "Material": Material
 }
 ```
 
-- Действие юнита (Action)
+- Действие юнита (UnitAction)
 ```json
 {
     "Type": // 1 - Moving, 2 - Production, 3 - Building
@@ -32,7 +38,8 @@
 // MovingData
 {
     "Speed": float64
-    "Node": Node // К этой ноде движется юнит
+    "FromNode": Node // От этой ноды юнит начал движение
+    "ToNode": Node // К этой ноде движется юнит
     "Progress": float64 // Значение от 0 до 1, обозначающее продвижение по дороге от одной ноде к другой
 }
 
@@ -43,6 +50,14 @@
 
 // BuildingData
 {}
+```
+
+- Материал (Material)
+```json
+{
+    "Type": uint // TODO
+    "Node": Node
+}
 ```
 
 

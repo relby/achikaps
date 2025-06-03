@@ -3,17 +3,13 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
-	"fmt"
-	"maps"
 	"math"
-	"slices"
 
 	"github.com/heroiclabs/nakama-common/rtapi"
 	"github.com/heroiclabs/nakama-common/runtime"
-	"github.com/relby/achikaps/game"
 	"github.com/relby/achikaps/graph"
 	"github.com/relby/achikaps/match_state"
+	"github.com/relby/achikaps/material"
 	"github.com/relby/achikaps/node"
 	"github.com/relby/achikaps/opcode"
 	"github.com/relby/achikaps/unit"
@@ -38,32 +34,30 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 
 	state := &match_state.State{
 		Presences:   make(map[string]runtime.Presence, len(players)),
-		Graphs:      make(map[string]*graph.Graph, len(players)),
+		Graphs: make(map[string]*graph.Graph, len(players)),
 		NextNodeIDs: make(map[string]node.ID, len(players)),
-		GameManagers: make(map[string]*game.Manager, len(players)),
+		Units: make(map[string][]*unit.Unit),
+		Materials: make(map[string][]*material.Material),
 	}
 	
 	for i, p := range players {
 		userID := p.GetPresence().GetUserId()
 
 		root := node.NewTransit(
-			1,
+			node.ID(1),
 			onCircle(i, len(players), StartRadius),
 		)
 		g := graph.New(root)
 
 		state.Graphs[userID] = g
 
-		state.NextNodeIDs[userID] = root.ID + 1
+		state.NextNodeIDs[userID] = node.ID(2)
 		
-		state.GameManagers[userID] = game.NewManager(
-			g,
-			[]*unit.Unit{
-				unit.New(unit.IdleType, root),
-				unit.New(unit.IdleType, root),
-				unit.New(unit.IdleType, root),
-			},
-		)
+		state.Units[userID] = []*unit.Unit{
+			unit.NewIdle(root),
+		}
+		
+		state.Materials[userID] = nil
 	}
 
 	tickRate := 5 // 1 tick per second = 1 MatchLoop func invocations per second
@@ -99,10 +93,9 @@ func (m *Match) MatchLeave(ctx context.Context, logger runtime.Logger, db *sql.D
 		return nil
 	}
 
+	// TODO: research if we need to delete only presences or all data
 	for _, p := range presences {
 		delete(matchState.Presences, p.GetUserId())
-		delete(matchState.Graphs, p.GetUserId())
-		delete(matchState.NextNodeIDs, p.GetUserId())
 	}
 
 	return matchState
@@ -129,34 +122,33 @@ func (m *Match) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB
 		}
 	}
 	
-	for _, am := range matchState.GameManagers {
-		am.Tick()
-	}
+	matchState.Tick()
 	
-	type resp struct{
-		Units map[string][]*unit.Unit
-	}
-	r := resp{
-		Units: make(map[string][]*unit.Unit),
-	}
+	// TODO: Finish this
+	// type resp struct{
+	// 	Units map[string][]*unit.Unit
+	// }
+	// r := resp{
+	// 	Units: make(map[string][]*unit.Unit),
+	// }
 	
-	for _, presence := range matchState.Presences {
-		userID := presence.GetUserId()
-		for _, u := range matchState.GameManagers[userID].Units {
-			r.Units[userID] = append(r.Units[userID], u)
-		}
-	}
+	// for _, presence := range matchState.Presences {
+	// 	userID := presence.GetUserId()
+	// 	for _, u := range matchState.Units {
+	// 		r.Units[userID] = append(r.Units[userID], u)
+	// 	}
+	// }
 
-	b, err := json.Marshal(r)
-	if err != nil {
-		return fmt.Errorf("can't unmarshal state: %w", err)
-	}
+	// b, err := json.Marshal(r)
+	// if err != nil {
+	// 	return fmt.Errorf("can't unmarshal state: %w", err)
+	// }
 
-	x := slices.Collect(maps.Values(matchState.Presences))
+	// x := slices.Collect(maps.Values(matchState.Presences))
 
-	if err := dispatcher.BroadcastMessage(1, b, x, nil, true); err != nil {
-		return fmt.Errorf("can't broadcast message state: %w", err)
-	}
+	// if err := dispatcher.BroadcastMessage(3, b, x, nil, true); err != nil {
+	// 	return fmt.Errorf("can't broadcast message state: %w", err)
+	// }
 
 	return matchState
 }

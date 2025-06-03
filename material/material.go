@@ -11,8 +11,9 @@ const (
 type Material struct {
 	Type Type
 	Node *node.Node
+	IsReserved bool
 }
 
 func New(typ Type, n *node.Node) *Material {
-	return &Material{typ, n}
+	return &Material{typ, n, false}
 }

@@ -8,6 +8,21 @@ import (
 	"github.com/relby/achikaps/match_state"
 )
 
+/*
+// TODO
+{
+	"nodes": {
+		"1": {"Type": ...},
+		"2": {"Type": ...},
+		"3": {"Type": ...},
+	},
+	"connections": {
+		"1": ["2", "3"],
+		"2": ["1"],
+		"3": ["3"],
+	}
+}
+*/
 func GetStateHandler(dispatcher runtime.MatchDispatcher, msg runtime.MatchData, state *match_state.State) error {
 	b, err := json.Marshal(state)
 	if err != nil {

@@ -10,6 +10,11 @@ import (
 	"github.com/relby/achikaps/vec2"
 )
 
+var (
+	ErrEdgeNotFound = graph.ErrEdgeNotFound
+	ErrEdgeAlreadyExists = graph.ErrEdgeAlreadyExists
+)
+
 type Edge = graph.Edge[node.ID]
 
 type Graph struct {
@@ -24,6 +29,13 @@ func New(root *node.Node) *Graph {
 	assert.NoError(err)
 
 	return &Graph{g}
+}
+
+func (g *Graph) NodeCount() int {
+	count, err := g.g.Order()
+	assert.NoError(err)
+	
+	return count
 }
 
 func (g *Graph) Node(id node.ID) (*node.Node, error) {
