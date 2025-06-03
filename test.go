@@ -11,6 +11,7 @@ import (
 	"github.com/relby/achikaps/material"
 	"github.com/relby/achikaps/node"
 	"github.com/relby/achikaps/unit"
+	"github.com/relby/achikaps/unit_action"
 	"github.com/relby/achikaps/vec2"
 )
 
@@ -44,6 +45,8 @@ func main() {
 		NextNodeIDs: make(map[string]node.ID),
 		Units: make(map[string][]*unit.Unit),
 		Materials: make(map[string][]*material.Material),
+		
+		ClientUpdates: make(map[string][]*unit_action.UnitAction),
 	}
 
 	state.Presences[id] = &MyPresence{username: "test"}
@@ -70,12 +73,12 @@ func main() {
 	
 	state.Materials[id] = nil
 
-	if err := state.BuildNode(id, root.ID, node.TransitType, vec2.New(100, 100), nil); err != nil {
+	if _, err := state.BuildNode(id, root.ID, node.TransitType, vec2.New(50, 50), nil); err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	if err := state.BuildNode(id, root.ID, node.ProductionType, vec2.New(-100, -100), node.WellProductionTypeData); err != nil {
+	if _, err := state.BuildNode(id, root.ID, node.ProductionType, vec2.New(-50, -50), node.WellProductionTypeData); err != nil {
 		fmt.Println(err)
 		return
 	}

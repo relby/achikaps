@@ -10,31 +10,32 @@ func True(condition bool) {
 
 func Equals[T comparable](v1, v2 T) {
 	if v1 != v2 {
-		panic(fmt.Sprintf("assertion error (v1 != v2): v1(%v) v2(%v)", v1, v2))
+		panic(fmt.Sprintf("assertion error (v1 != v2): v1(%#v) v2(%#v)", v1, v2))
 	}
 }
 
 func NotEquals[T comparable](v1, v2 T) {
 	if v1 == v2 {
-		panic(fmt.Sprintf("assertion error (v1 == v2): v1(%v) v2(%v)", v1, v2))
+		panic(fmt.Sprintf("assertion error (v1 == v2): v1(%#v) v2(%#v)", v1, v2))
 	}
 }
 
-func Nil(v any) {
-	if v != nil {
-		panic(fmt.Sprintf("assertion error (v != nil): %v", v))
-	}
-}
+// TODO: this doesn't work as expected
+// func Nil(v any) {
+// 	if v != nil {
+// 		panic(fmt.Sprintf("assertion error (v != nil): %#v", v))
+// 	}
+// }
 
-func NotNil(v any) {
-	if v == nil {
-		panic(fmt.Sprintf("assertion error (v == nil): %v", v))
-	}
-}
+// func NotNil(v any) {
+// 	if v == nil {
+// 		panic(fmt.Sprintf("assertion error (v == nil): %#v", v))
+// 	}
+// }
 
 func NoError(err error) {
 	if (err != nil) {
-		panic(fmt.Sprintf("assertion error (err != nil): %v", err))
+		panic(fmt.Sprintf("assertion error (err != nil): %#v", err))
 	}
 }
 

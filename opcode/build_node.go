@@ -17,6 +17,11 @@ type buildNodeReq struct {
 	Data 	   any
 }
 
+type buildNodeResp struct {
+	FromNodeID node.ID
+	Node *node.Node
+}
+
 func BuildNodeHandler(dispatcher runtime.MatchDispatcher, msg runtime.MatchData, state *match_state.State) error {
 	userID := msg.GetUserId()
 
@@ -34,10 +39,24 @@ func BuildNodeHandler(dispatcher runtime.MatchDispatcher, msg runtime.MatchData,
 	if err != nil {
 		return sendErrorResp(fmt.Errorf("invalid Type: %w", err), dispatcher, BuildNode, userID, state)
 	}
-	
-	if err := state.BuildNode(userID, fromID, typ, req.Position, req.Data); err != nil {
+	toNode, err := state.BuildNode(userID, fromID, typ, req.Position, req.Data)
+	if err != nil {
 		return sendErrorResp(fmt.Errorf("can't build node: %w", err), dispatcher, BuildNode, userID, state)
 	}
 	
-	return sendOkResp(dispatcher, BuildNode, userID, state)
+	resp := &buildNodeResp{
+		FromNodeID: fromID,
+		Node: toNode,
+	}
+
+	respBytes, err := json.Marshal(resp)
+	if err != nil {
+		return fmt.Errorf("can't marshal resp: %w", err)
+	}
+
+	if err := dispatcher.BroadcastMessage(int64(BuildNode), respBytes, nil, state.Presences[userID], true); err != nil {
+		return fmt.Errorf("can't broadcast message: %w", err)
+	}
+
+	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/heroiclabs/nakama-common/runtime"
+	"github.com/relby/achikaps/assert"
 	"github.com/relby/achikaps/match_state"
 )
 
@@ -40,7 +41,9 @@ type errorResp struct {
 }
 
 func sendOkResp(dispatcher runtime.MatchDispatcher, opCode OpCode, userID string, state *match_state.State) error {
-	resp, _ := json.Marshal(okResp{})
+	resp, err := json.Marshal(okResp{})
+	assert.NoError(err)
+
 	if err := dispatcher.BroadcastMessage(int64(opCode), resp, nil, state.Presences[userID], true); err != nil {
 		return fmt.Errorf("can't broadcast message: %w", err)
 	}
@@ -50,9 +53,7 @@ func sendOkResp(dispatcher runtime.MatchDispatcher, opCode OpCode, userID string
 
 func sendErrorResp(err error, dispatcher runtime.MatchDispatcher, opCode OpCode, userID string, state *match_state.State) error {
 	resp, err := json.Marshal(errorResp{Error: err})
-	if err != nil {
-		return fmt.Errorf("can't unmarshal state: %w", err)
-	}
+	assert.NoError(err)
 
 	if err := dispatcher.BroadcastMessage(int64(opCode), resp, []runtime.Presence{state.Presences[userID]}, state.Presences[userID], true); err != nil {
 		return fmt.Errorf("can't broadcast message: %w", err)

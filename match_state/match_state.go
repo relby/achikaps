@@ -26,13 +26,13 @@ type State struct {
 	ClientUpdates map[string][]*unit_action.UnitAction
 }
 
-func (s *State) BuildNode(userID string, fromID node.ID, typ node.Type, pos vec2.Vec2, data any) error {
+func (s *State) BuildNode(userID string, fromID node.ID, typ node.Type, pos vec2.Vec2, data any) (*node.Node, error) {
 	userGraph, ok := s.Graphs[userID]
 	assert.True(ok)
 	
 	fromNode, err := userGraph.Node(fromID)
 	if errors.Is(err, graph.ErrEdgeNotFound) {
-		return fmt.Errorf("node not found: %w", err)
+		return nil, fmt.Errorf("node not found: %w", err)
 	}
 	assert.NoError(err)
 	
@@ -46,7 +46,7 @@ func (s *State) BuildNode(userID string, fromID node.ID, typ node.Type, pos vec2
 	case node.ProductionType:
 		data, ok := data.(node.ProductionTypeData)
 		if !ok {
-			return fmt.Errorf("invalid Data for ProductionType node")
+			return nil, fmt.Errorf("invalid Data for ProductionType node")
 		}
 		
 		toNode = node.NewProduction(toNodeID, pos, data)
@@ -55,26 +55,26 @@ func (s *State) BuildNode(userID string, fromID node.ID, typ node.Type, pos vec2
 	}
 	
 	if fromNode.DistanceTo(toNode) > 10 * node.DefaultRadius {
-		return fmt.Errorf("new node is too far")
+		return nil, fmt.Errorf("new node is too far")
 	}
 
 	for _, g := range s.Graphs {
 		if g.NodeIntersectsAny(toNode) {
-			return fmt.Errorf("new node intersects the graph")
+			return nil, fmt.Errorf("new node intersects the graph")
 		}
 		
 		if g.EdgeIntersectsAny(fromNode, toNode) {
-			return fmt.Errorf("new edge intersects the graph")
+			return nil, fmt.Errorf("new edge intersects the graph")
 		}
 	}
 
 	if err := userGraph.AddNodeFrom(fromNode, toNode); err != nil {
-		return fmt.Errorf("can't add node: %w", err)
+		return nil, fmt.Errorf("can't add node: %w", err)
 	}
 
 	s.NextNodeIDs[userID] += 1
 
-	return nil
+	return toNode, nil
 }
 
 func (s *State) Tick() {
@@ -120,7 +120,7 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 	assert.True(ok)
 	
 	// Unit should always have a node when polling for actions
-	assert.NotNil(u.Node)
+	assert.True(u.Node != nil)
 
 	am := userGraph.AdjacencyMap()
 	adjacentNodeMap, ok := am[u.Node.ID]
@@ -265,6 +265,7 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 		data, ok := u.Data.(*unit.TransportData)
 		assert.True(ok)
 
+		// TODO: We should find materials only when needed, so make the logic of need
 		if data.Material == nil {
 			type NodeWithMaterials struct {
 				Node *node.Node
@@ -280,7 +281,7 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 				}
 
 				// Material must have a node if not reserved
-				assert.NotNil(m.Node)
+				assert.True(m.Node != nil)
 
 				nwmMap[m.Node.ID] = NodeWithMaterials{
 					m.Node,
@@ -368,12 +369,10 @@ func (s *State) executeUnitAction(userID string, u *unit.Unit, action *unit_acti
 			
 			switch data {
 			// TODO
-			// case node.IncubatorProductionTypeData:
-			// 	s.Units[userID] = append(s.Units[userID], unit.NewIdle(u.Node))
-			// case node.WellProductionTypeData:
-			// 	s.Materials[userID] = append(s.Materials[userID], material.New(material.TODOType, u.Node))
-			// case node.SeedStorageProductionTypeData:
-			// 	s.Materials
+			case node.IncubatorProductionTypeData:
+				s.Units[userID] = append(s.Units[userID], unit.NewIdle(u.Node))
+			case node.WellProductionTypeData:
+				s.Materials[userID] = append(s.Materials[userID], material.New(material.DewType, u.Node))
 			default:
 				panic("unreachable")
 			}
@@ -400,7 +399,7 @@ func (s *State) executeUnitAction(userID string, u *unit.Unit, action *unit_acti
 		uaData, ok := action.Data.(*unit_action.TakeMaterialData)
 		assert.True(ok)
 
-		assert.Nil(uData.Material)
+		assert.True(uData.Material == nil)
 
 		uData.Material = uaData.Material
 		uData.Material.Node = nil
@@ -410,7 +409,7 @@ func (s *State) executeUnitAction(userID string, u *unit.Unit, action *unit_acti
 		uData, ok := u.Data.(*unit.TransportData)
 		assert.True(ok)
 
-		assert.NotNil(uData.Material)
+		assert.True(uData.Material != nil)
 		
 		uData.Material.IsReserved = false
 		uData.Material.Node = u.Node

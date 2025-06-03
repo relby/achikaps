@@ -122,7 +122,7 @@ func (m *Match) MatchJoin(ctx context.Context, logger runtime.Logger, db *sql.DB
 		return nil
 	}
 
-	if err := dispatcher.BroadcastMessage(int64(opcode.InitialState), respBytes, presences, nil, true); err != nil {
+	if err := dispatcher.BroadcastMessage(int64(opcode.InitialState), respBytes, nil, nil, true); err != nil {
 		logger.Error("can't broadcast message state: %w", err)
 		return nil
 	}
