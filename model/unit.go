@@ -201,13 +201,17 @@ func NewMovingUnitAction(speed float64, fromNode, toNode *Node) *UnitAction {
 }
 
 type ProductionUnitActionData struct {
+	InputMaterials []*Material
 	Progress float64
 }
 
-func NewProductionUnitAction() *UnitAction {
+func NewProductionUnitAction(materials []*Material) *UnitAction {
 	return newUnitAction(
 		ProductionUnitActionType,
-		&ProductionUnitActionData{0},
+		&ProductionUnitActionData{
+			materials,
+			0,
+		},
 	)
 }
 

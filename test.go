@@ -93,36 +93,44 @@ func main() {
 
 	state.NextMaterialIDs[id] = model.ID(c)
 
-	if _, err := state.BuildNode(id, root.ID(), model.GrassFieldNodeName, vec2.New(50, 50)); err != nil {
+	n, err := state.BuildNode(id, root.ID(), model.GrassFieldNodeName, vec2.New(50, 50))
+	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	if _, err := state.BuildNode(id, root.ID(), model.WellNodeName, vec2.New(-50, -50)); err != nil {
-		fmt.Println(err)
-		return
-	}
+	state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n)
+	c += 1
+	state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n)
+	c += 1
+	state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n)
+	c += 1
+	// state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n)
+	// c += 1
+
+	// if _, err := state.BuildNode(id, root.ID(), model.WellNodeName, vec2.New(-50, -50)); err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
 	
-	if _, err := state.ChangeUnitType(id, 4, model.IdleUnitType); err != nil {
-		fmt.Println(err)
-		return
-	}
+	// if _, err := state.ChangeUnitType(id, 4, model.IdleUnitType); err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
 	
 	c = 0
 	for {
 		state.Tick()
-		// if len(g.BuildingNodes()) == 0 {
+		
+		// spew.Dump(state.Units[id][3])
+		// if c == 5 {
 		// 	break
 		// }
-		if len(state.Materials[id]) >= 50 {
-			x := map[model.MaterialType]uint{}
-			for _, m := range state.Materials[id] {
-				x[m.Type()] += 1
-			}
-			spew.Dump(x)
-			spew.Dump(c)
+		if len(state.Graphs[id].BuildingNodes()) == 0 {
+			spew.Dump(n)
 			break
 		}
+
 		c += 1
 	}
 }
