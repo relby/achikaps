@@ -1,10 +1,19 @@
 package assert
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
 
 func True(condition bool) {
 	if !condition {
 		panic("assertion error: expected true, got false")
+	}
+}
+
+func False(condition bool) {
+	if condition {
+		panic("assertion error: expected false, got true")
 	}
 }
 
@@ -20,25 +29,20 @@ func NotEquals[T comparable](v1, v2 T) {
 	}
 }
 
-// TODO: this doesn't work as expected
-// func Nil(v any) {
-// 	if v != nil {
-// 		panic(fmt.Sprintf("assertion error (v != nil): %#v", v))
-// 	}
-// }
-
-// func NotNil(v any) {
-// 	if v == nil {
-// 		panic(fmt.Sprintf("assertion error (v == nil): %#v", v))
-// 	}
-// }
-
-func NoError(err error) {
-	if (err != nil) {
-		panic(fmt.Sprintf("assertion error (err != nil): %#v", err))
+func Nil(v any) {
+	if !reflect.ValueOf(v).IsNil() {
+		panic(fmt.Sprintf("assertion error (v != nil): %#v", v))
 	}
 }
 
-func Unreachable() {
-	panic("assertion error (unreachable)")
+func NotNil(v any) {
+	if reflect.ValueOf(v).IsNil() {
+		panic(fmt.Sprintf("assertion error (v == nil): %#v", v))
+	}
+}
+
+func NoError(err error) {
+	if err != nil {
+		panic(fmt.Sprintf("assertion error (err != nil): %#v", err))
+	}
 }

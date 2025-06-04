@@ -10,11 +10,8 @@ import (
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/relby/achikaps/graph"
 	"github.com/relby/achikaps/match_state"
-	"github.com/relby/achikaps/material"
-	"github.com/relby/achikaps/node"
+	"github.com/relby/achikaps/model"
 	"github.com/relby/achikaps/opcode"
-	"github.com/relby/achikaps/unit"
-	"github.com/relby/achikaps/unit_action"
 	"github.com/relby/achikaps/vec2"
 )
 
@@ -36,47 +33,57 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 
 	state := &match_state.State{
 		Presences:   make(map[string]runtime.Presence, len(players)),
+
 		Graphs: make(map[string]*graph.Graph, len(players)),
-		NextNodeIDs: make(map[string]node.ID, len(players)),
-		NextUnitIDs: make(map[string]unit.ID),
-		Units: make(map[string][]*unit.Unit, len(players)),
-		Materials: make(map[string][]*material.Material, len(players)),
-		ClientUpdates: make(map[string][]*unit_action.UnitAction, len(players)),
+		NextNodeIDs: make(map[string]model.ID, len(players)),
+
+		Units: make(map[string]map[model.ID]*model.Unit, len(players)),
+		NextUnitIDs: make(map[string]model.ID),
+
+		Materials: make(map[string]map[model.ID]*model.Material, len(players)),
+		NextMaterialIDs: make(map[string]model.ID, len(players)),
+
+		ClientUpdates: make(map[string][]*model.UnitAction, len(players)),
 	}
 	
 	for i, p := range players {
 		userID := p.GetPresence().GetUserId()
 
-		root := node.NewTransit(
-			node.ID(1),
+		root := model.NewNode(
+			model.ID(1),
+			model.SandTransitNodeName,
 			onCircle(i, len(players), StartRadius),
 		)
-		// TODO: It's a hack to make the root node built, we need to find a better way to do this
-		root.BuildProgress = 1
+		root.BuildFully()
 
 		g := graph.New(root)
 
 		state.Graphs[userID] = g
 
-		state.NextNodeIDs[userID] = node.ID(2)
+		state.NextNodeIDs[userID] = model.ID(2)
 		
-		state.Units[userID] = []*unit.Unit{
-			unit.NewIdle(1, root),
-			unit.NewProduction(2, root),
-			unit.NewBuilder(3, root),
-			unit.NewTranport(4, root, unit.NewTransportData(nil)),
+		state.Units[userID] = map[model.ID]*model.Unit{
+			1: model.NewUnit(1, model.IdleUnitType, root),
+			2: model.NewUnit(2, model.ProductionUnitType, root),
+			3: model.NewUnit(3, model.BuilderUnitType, root),
+			4: model.NewUnit(4, model.TransportUnitType, root),
 		}
 		
-		state.NextUnitIDs[userID] = unit.ID(5)
+		state.NextUnitIDs[userID] = model.ID(5)
 		
+		state.Materials[userID] = make(map[model.ID]*model.Material, 28)
+		c := 1
 		for range 20 {
-			state.Materials[userID] = append(state.Materials[userID], material.New(material.GrassType, root))
+			state.Materials[userID][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, root)
+			c += 1
 		}
 		for range 6 {
-			state.Materials[userID] = append(state.Materials[userID], material.New(material.SandType, root))
+			state.Materials[userID][model.ID(c)] = model.NewMaterial(model.ID(c), model.SandMaterialType, root)
+			c += 1
 		}
 		for range 2 {
-			state.Materials[userID] = append(state.Materials[userID], material.New(material.DewType, root))
+			state.Materials[userID][model.ID(c)] = model.NewMaterial(model.ID(c), model.DewMaterialType, root)
+			c += 1
 		}
 	}
 
@@ -104,14 +111,14 @@ func (m *Match) MatchJoin(ctx context.Context, logger runtime.Logger, db *sql.DB
 	}
 
 	type initialStateResp struct {
-		Nodes map[string][]*node.Node
-		Units map[string][]*unit.Unit
-		Materials map[string][]*material.Material
+		Nodes map[string]map[model.ID]*model.Node
+		Units map[string]map[model.ID]*model.Unit
+		Materials map[string]map[model.ID]*model.Material
 	}
 
 	resp := &initialStateResp{}
 
-	resp.Nodes = make(map[string][]*node.Node, len(matchState.Graphs))
+	resp.Nodes = make(map[string]map[model.ID]*model.Node, len(matchState.Graphs))
 	for uID, g := range matchState.Graphs {
 		resp.Nodes[uID] = g.Nodes()
 	}

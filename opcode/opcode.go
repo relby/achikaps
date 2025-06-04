@@ -26,12 +26,14 @@ const (
 	InitialState OpCode = iota + 1
 	BuildNode
 	UnitActionExecute
+	ChangeUnitType
 )
 
 type Handler func(runtime.MatchDispatcher, runtime.MatchData, *match_state.State) error
 
 var Handlers = map[OpCode]Handler{
 	BuildNode: BuildNodeHandler,
+	ChangeUnitType: ChangeUnitTypeHandler,
 }
 
 type okResp struct{}

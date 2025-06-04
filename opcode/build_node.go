@@ -6,20 +6,19 @@ import (
 
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/relby/achikaps/match_state"
-	"github.com/relby/achikaps/node"
+	"github.com/relby/achikaps/model"
 	"github.com/relby/achikaps/vec2"
 )
 
 type buildNodeReq struct {
 	FromNodeID uint
-	Type       uint
+	Name       uint
 	Position   vec2.Vec2
-	Data 	   any
 }
 
 type buildNodeResp struct {
-	FromNodeID node.ID
-	Node *node.Node
+	FromNodeID model.ID
+	Node *model.Node
 }
 
 func BuildNodeHandler(dispatcher runtime.MatchDispatcher, msg runtime.MatchData, state *match_state.State) error {
@@ -30,16 +29,16 @@ func BuildNodeHandler(dispatcher runtime.MatchDispatcher, msg runtime.MatchData,
 		return sendErrorResp(fmt.Errorf("can't unmarshal data: %w", err), dispatcher, BuildNode, userID, state)
 	}
 
-	fromID, err := node.NewID(req.FromNodeID)
+	fromID, err := model.NewID(req.FromNodeID)
 	if err != nil {
 		return sendErrorResp(fmt.Errorf("invalid FromNodeID: %w", err), dispatcher, BuildNode, userID, state)
 	}
 
-	typ, err := node.NewType(req.Type)	
+	name, err := model.NewNodeName(req.Name)	
 	if err != nil {
-		return sendErrorResp(fmt.Errorf("invalid Type: %w", err), dispatcher, BuildNode, userID, state)
+		return sendErrorResp(fmt.Errorf("invalid Name: %w", err), dispatcher, BuildNode, userID, state)
 	}
-	toNode, err := state.BuildNode(userID, fromID, typ, req.Position, req.Data)
+	toNode, err := state.BuildNode(userID, fromID, name, req.Position)
 	if err != nil {
 		return sendErrorResp(fmt.Errorf("can't build node: %w", err), dispatcher, BuildNode, userID, state)
 	}

@@ -6,7 +6,7 @@ import (
 
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/relby/achikaps/match_state"
-	"github.com/relby/achikaps/unit"
+	"github.com/relby/achikaps/model"
 )
 
 type changeUnitTypeReq struct {
@@ -15,7 +15,7 @@ type changeUnitTypeReq struct {
 }
 
 type changeUnitTypeResp struct {
-	Unit *unit.Unit
+	Unit *model.Unit
 }
 
 func ChangeUnitTypeHandler(dispatcher runtime.MatchDispatcher, msg runtime.MatchData, state *match_state.State) error {
@@ -26,12 +26,12 @@ func ChangeUnitTypeHandler(dispatcher runtime.MatchDispatcher, msg runtime.Match
 		return sendErrorResp(fmt.Errorf("can't unmarshal data: %w", err), dispatcher, BuildNode, userID, state)
 	}
 
-	id, err := unit.NewID(req.ID)
+	id, err := model.NewID(req.ID)
 	if err != nil {
 		return sendErrorResp(fmt.Errorf("invalid ID: %w", err), dispatcher, BuildNode, userID, state)
 	}
 
-	typ, err := unit.NewType(req.Type)	
+	typ, err := model.NewUnitType(req.Type)	
 	if err != nil {
 		return sendErrorResp(fmt.Errorf("invalid Type: %w", err), dispatcher, BuildNode, userID, state)
 	}

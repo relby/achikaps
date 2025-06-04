@@ -8,10 +8,7 @@ import (
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/relby/achikaps/graph"
 	"github.com/relby/achikaps/match_state"
-	"github.com/relby/achikaps/material"
-	"github.com/relby/achikaps/node"
-	"github.com/relby/achikaps/unit"
-	"github.com/relby/achikaps/unit_action"
+	"github.com/relby/achikaps/model"
 	"github.com/relby/achikaps/vec2"
 )
 
@@ -41,57 +38,89 @@ func main() {
 	id := generateUUID()
 	state := match_state.State{
 		Presences: make(map[string]runtime.Presence),
+
 		Graphs: make(map[string]*graph.Graph),
-		NextNodeIDs: make(map[string]node.ID),
-		NextUnitIDs: make(map[string]unit.ID),
-		Units: make(map[string][]*unit.Unit),
-		Materials: make(map[string][]*material.Material),
+		NextNodeIDs: make(map[string]model.ID),
+
+		Units: make(map[string]map[model.ID]*model.Unit),
+		NextUnitIDs: make(map[string]model.ID),
+
+		Materials: make(map[string]map[model.ID]*model.Material),
+		NextMaterialIDs: make(map[string]model.ID),
 		
-		ClientUpdates: make(map[string][]*unit_action.UnitAction),
+		ClientUpdates: make(map[string][]*model.UnitAction),
 	}
 
 	state.Presences[id] = &MyPresence{username: "test"}
 
-	root := node.NewTransit(
-		node.ID(1),
+	root := model.NewNode(
+		model.ID(1),
+		model.SandTransitNodeName,
 		vec2.New(0, 0),
 	)
 
-	root.BuildProgress = 1
+	root.BuildFully()
 	
 	g := graph.New(root)
 
 	state.Graphs[id] = g
 
-	state.NextNodeIDs[id] = node.ID(2)
+	state.NextNodeIDs[id] = model.ID(2)
 	
-	state.Units[id] = []*unit.Unit{
-		unit.NewIdle(1, root),
-		unit.NewProduction(2, root),
-		unit.NewBuilder(3, root),
-		unit.NewTranport(4, root, unit.NewTransportData(nil)),
+	state.Units[id] = map[model.ID]*model.Unit{
+		1: model.NewUnit(1, model.IdleUnitType, root),
+		2: model.NewUnit(2, model.ProductionUnitType, root),
+		3: model.NewUnit(3, model.BuilderUnitType, root),
+		4: model.NewUnit(4, model.TransportUnitType, root),
 	}
 	
-	state.NextUnitIDs[id] = unit.ID(5)
-	
-	state.Materials[id] = nil
+	state.NextUnitIDs[id] = model.ID(5)
 
-	if _, err := state.BuildNode(id, root.ID, node.TransitType, vec2.New(50, 50), nil); err != nil {
+	state.Materials[id] = make(map[model.ID]*model.Material, 28)
+	c := 1
+	for range 20 {
+		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, root)
+		c += 1
+	}
+	for range 6 {
+		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.SandMaterialType, root)
+		c += 1
+	}
+	for range 2 {
+		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.DewMaterialType, root)
+		c += 1
+	}
+
+	state.NextMaterialIDs[id] = model.ID(c)
+
+	if _, err := state.BuildNode(id, root.ID(), model.GrassFieldNodeName, vec2.New(50, 50)); err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	if _, err := state.BuildNode(id, root.ID, node.ProductionType, vec2.New(-50, -50), node.WellProductionTypeData); err != nil {
+	if _, err := state.BuildNode(id, root.ID(), model.WellNodeName, vec2.New(-50, -50)); err != nil {
 		fmt.Println(err)
 		return
 	}
 	
-	c := 0
+	if _, err := state.ChangeUnitType(id, 4, model.IdleUnitType); err != nil {
+		fmt.Println(err)
+		return
+	}
+	
+	c = 0
 	for {
 		state.Tick()
-		builder := state.Units[id][2]
-		spew.Dump(builder)
-		if len(g.BuildingNodes()) == 0 {
+		// if len(g.BuildingNodes()) == 0 {
+		// 	break
+		// }
+		if len(state.Materials[id]) >= 50 {
+			x := map[model.MaterialType]uint{}
+			for _, m := range state.Materials[id] {
+				x[m.Type()] += 1
+			}
+			spew.Dump(x)
+			spew.Dump(c)
 			break
 		}
 		c += 1

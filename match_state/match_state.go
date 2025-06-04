@@ -3,31 +3,34 @@ package match_state
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"math/rand"
+	"slices"
 
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/relby/achikaps/assert"
 	"github.com/relby/achikaps/graph"
-	"github.com/relby/achikaps/material"
-	"github.com/relby/achikaps/node"
-	"github.com/relby/achikaps/unit"
-	"github.com/relby/achikaps/unit_action"
+	"github.com/relby/achikaps/model"
 	"github.com/relby/achikaps/vec2"
 )
 
 type State struct {
 	Presences   map[string]runtime.Presence
+
 	Graphs map[string]*graph.Graph
-	NextNodeIDs map[string]node.ID
-	NextUnitIDs map[string]unit.ID
-	Units map[string][]*unit.Unit
-	Materials map[string][]*material.Material
+	NextNodeIDs map[string]model.ID
+
+	Units map[string]map[model.ID]*model.Unit
+	NextUnitIDs map[string]model.ID
+
+	Materials map[string]map[model.ID]*model.Material
+	NextMaterialIDs map[string]model.ID
 	
-	ClientUpdates map[string][]*unit_action.UnitAction
+	ClientUpdates map[string][]*model.UnitAction
 }
 
-func (s *State) BuildNode(userID string, fromID node.ID, typ node.Type, pos vec2.Vec2, data any) (*node.Node, error) {
+func (s *State) BuildNode(userID string, fromID model.ID, name model.NodeName, pos vec2.Vec2) (*model.Node, error) {
 	userGraph, ok := s.Graphs[userID]
 	assert.True(ok)
 	
@@ -40,22 +43,9 @@ func (s *State) BuildNode(userID string, fromID node.ID, typ node.Type, pos vec2
 	toNodeID, ok := s.NextNodeIDs[userID]
 	assert.True(ok)
 
-	var toNode *node.Node
-	switch typ {
-	case node.TransitType:
-		toNode = node.NewTransit(toNodeID, pos)
-	case node.ProductionType:
-		data, ok := data.(node.ProductionTypeData)
-		if !ok {
-			return nil, fmt.Errorf("invalid Data for ProductionType node")
-		}
-		
-		toNode = node.NewProduction(toNodeID, pos, data)
-	default:
-		assert.Unreachable()
-	}
+	toNode := model.NewNode(toNodeID, name, pos)
 	
-	if fromNode.DistanceTo(toNode) > 10 * node.DefaultRadius {
+	if fromNode.DistanceTo(toNode) > 10 * model.DefaultNodeRadius {
 		return nil, fmt.Errorf("new node is too far")
 	}
 
@@ -78,62 +68,16 @@ func (s *State) BuildNode(userID string, fromID node.ID, typ node.Type, pos vec2
 	return toNode, nil
 }
 
-func (s *State) ChangeUnitType(userID string, id unit.ID, typ unit.Type) (*unit.Unit, error) {
+func (s *State) ChangeUnitType(userID string, id model.ID, typ model.UnitType) (*model.Unit, error) {
 	userUnits, ok := s.Units[userID]
 	assert.True(ok)
 	
-	var u *unit.Unit
-	for _, uu := range userUnits {
-		if uu.ID == id {
-			u = uu
-			break
-		}
-	}
-	
-	if u == nil {
+	u, exists := userUnits[id]
+	if !exists {
 		return nil, fmt.Errorf("unit not found")
 	}
 	
-	// Do nothing if the type is the same
-	if u.Type == typ {
-		return u, nil
-	}
-	
-	// If we change the type of the transport unit
-	// we should ensure that material is not lost
-	switch u.Type {
-	case unit.TransportType:
-		uData, ok := u.Data.(*unit.TransportData)
-		assert.True(ok)
-		
-		if uData.Material != nil {
-			assert.True(uData.Material.Node == nil)
-
-			if u.Node != nil {
-				uData.Material.Node = u.Node
-			} else {
-				// In here unit is moving
-				assert.NotEquals(u.Actions.Len(), 0)
-
-				movingAction := u.Actions.Front()
-				assert.Equals(movingAction.Type, unit_action.MovingType)
-				
-				movingActionData, ok := movingAction.Data.(*unit_action.MovingData)
-				assert.True(ok)
-
-				uData.Material.Node = movingActionData.FromNode
-			}
-		}
-	}
-	
-	switch typ {
-	case unit.TransportType:
-		u.Data = unit.NewTransportData(nil)
-	default:
-		u.Data = nil
-	}
-	
-	u.Type = typ
+	u.SetType(typ)
 	
 	return u, nil
 }
@@ -141,7 +85,7 @@ func (s *State) ChangeUnitType(userID string, id unit.ID, typ unit.Type) (*unit.
 func (s *State) Tick() {
 	for userID, units := range s.Units {
 		for _, u := range units {
-			if u.Actions.Len() == 0 {
+			if u.Actions().Len() == 0 {
 				s.pollActions(userID, u)
 			}
 		}
@@ -149,11 +93,11 @@ func (s *State) Tick() {
 		
 	for userID, units := range s.Units {
 		for _, u := range units {
-			if u.Actions.Len() == 0 {
+			if u.Actions().Len() == 0 {
 				continue
 			}
 			
-			action := u.Actions.Front()
+			action := u.Actions().Front()
 			
 			// Action is about to start, add client updates
 			if !action.IsStarted {
@@ -162,7 +106,7 @@ func (s *State) Tick() {
 
 			done := s.executeUnitAction(userID, u, action)
 			if done {
-				u.Actions.PopFront()
+				u.Actions().PopFront()
 			}
 		}
 	}
@@ -170,31 +114,25 @@ func (s *State) Tick() {
 
 // pollActions tries to add action to a unit
 // If action was added returns true, otherwise false
-func (s *State) pollActions(userID string, u *unit.Unit) bool {
+func (s *State) pollActions(userID string, u *model.Unit) bool {
 	userGraph, ok := s.Graphs[userID]
 	assert.True(ok)
 
-	userUnits, ok := s.Units[userID]
-	assert.True(ok)
-
-	userMaterials, ok := s.Materials[userID]
-	assert.True(ok)
-	
 	// Unit should always have a node when polling for actions
-	assert.True(u.Node != nil)
+	assert.NotNil(u.Node())
 
-	am := userGraph.AdjacencyMap()
-	adjacentNodeMap, ok := am[u.Node.ID]
-	assert.True(ok)
-	
-	getRandomAdjacentNode := func() (*node.Node, bool) {
-		adjacentNodes := make([]node.ID, 0, len(adjacentNodeMap))
+	getRandomAdjacentNode := func() (*model.Node, bool) {
+		am := userGraph.AdjacencyMap()
+		adjacentNodeMap, ok := am[u.Node().ID()]
+		assert.True(ok)
+
+		adjacentNodes := make([]model.ID, 0, len(adjacentNodeMap))
 		for nodeID := range adjacentNodeMap {
 			adjacentNodes = append(adjacentNodes, nodeID)
 		}
 		
 		// Filter out nodes that are not built yet
-		builtNodes := make([]*node.Node, 0, len(adjacentNodes))
+		builtNodes := make([]*model.Node, 0, len(adjacentNodes))
 		for _, nID := range adjacentNodes {
 			n, err := userGraph.Node(nID)
 			assert.NoError(err)
@@ -213,12 +151,12 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 		return randomNode, true
 	}
 	
-	findShortestPathOfMultiple := func(ns []*node.Node) ([]*node.Node, *node.Node) {
-		var path []*node.Node
-		var finalNode *node.Node
+	findShortestPathOfMultiple := func(ns []*model.Node) ([]*model.Node, *model.Node) {
+		var path []*model.Node
+		var finalNode *model.Node
 		pathDist := math.MaxFloat64
 		for _, n := range ns {
-			ns := userGraph.FindShortestPath(u.Node, n)
+			ns := userGraph.FindShortestPath(u.Node(), n)
 			
 			// Calculate the total path length
 			totalDist := 0.0
@@ -238,21 +176,21 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 		return path, finalNode
 	}
 
-	switch u.Type {
-	case unit.IdleType:
+	switch u.Type() {
+	case model.IdleUnitType:
 		n, ok := getRandomAdjacentNode()
 		
 		if !ok {
 			return false
 		}
 
-		u.Actions.PushBack(unit_action.NewMoving(unit.DefaultSpeed, u.Node, n))
+		u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, u.Node(), n))
 		return true
 
-	case unit.ProductionType:
+	case model.ProductionUnitType:
 		// If unit is not in the production node find the node with the least amount of units
-		if u.Node.Type != node.ProductionType {
-			prodNodes := userGraph.NodesByType(node.ProductionType)
+		if u.Node().Type() != model.ProductionNodeType {
+			prodNodes := userGraph.NodesByType(model.ProductionNodeType)
 			
 			if len(prodNodes) == 0 {
 				// Move in a random direction like IdleType units, just to be dynamic
@@ -261,19 +199,19 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 					return false
 				}
 				
-				u.Actions.PushBack(unit_action.NewMoving(unit.DefaultSpeed, u.Node, n))
+				u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, u.Node(), n))
 				return true
 			}
 			
 			// Find the production node with the least amount of units
-			var leastPopulatedNode *node.Node
+			var leastPopulatedNode *model.Node
 			minUnitCount := math.MaxInt
 			
 			for _, n := range prodNodes {
 				unitCount := 0
-				for _, u := range userUnits {
-					if u.Node.ID == n.ID {
-						unitCount++
+				for _, u := range n.Units() {
+					if u.Type() == model.ProductionUnitType {
+						unitCount += 1
 					}
 				}
 				
@@ -283,19 +221,19 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 				}
 			}
 
-			ns := userGraph.FindShortestPath(u.Node, leastPopulatedNode)
+			ns := userGraph.FindShortestPath(u.Node(), leastPopulatedNode)
 
 			for i := range len(ns) - 1 {
 				n1, n2 := ns[i], ns[i + 1]
-				u.Actions.PushBack(unit_action.NewMoving(unit.DefaultSpeed, n1, n2))
+				u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, n1, n2))
 			}
 		}
 
-		u.Actions.PushBack(unit_action.NewProduction())
+		u.Actions().PushBack(model.NewProductionUnitAction())
 		return true
 
-	case unit.BuilderType:
-		if u.Node.IsBuilt() {
+	case model.BuilderUnitType:
+		if u.Node().IsBuilt() {
 			buildingNodes := userGraph.BuildingNodes()
 			
 			if len(buildingNodes) == 0 {
@@ -305,88 +243,74 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 					return false
 				}
 				
-				u.Actions.PushBack(unit_action.NewMoving(unit.DefaultSpeed, u.Node, n))
+				u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, u.Node(), n))
 				return true
 			}
 			
 			
-			shortestPath, _ := findShortestPathOfMultiple(buildingNodes)
+			shortestPath, finalNode := findShortestPathOfMultiple(buildingNodes)
 
-			for i := range len(shortestPath) - 1 {
-				n1, n2 := shortestPath[i], shortestPath[i + 1]
-				u.Actions.PushBack(unit_action.NewMoving(unit.DefaultSpeed, n1, n2))
+			if u.Node().ID() != finalNode.ID() {
+				for i := range len(shortestPath) - 1 {
+					n1, n2 := shortestPath[i], shortestPath[i + 1]
+					u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, n1, n2))
+				}
 			}
-			
 		}
 		
-		u.Actions.PushBack(unit_action.NewBuilding())
+		u.Actions().PushBack(model.NewBuildingUnitAction())
 		return true
 
-	case unit.TransportType:
-		data, ok := u.Data.(*unit.TransportData)
-		assert.True(ok)
-
+	case model.TransportUnitType:
 		// TODO: We should find materials only when needed, so make the logic of need
-		if data.Material == nil {
-			type NodeWithMaterials struct {
-				Node *node.Node
-				Materials []*material.Material
-			}
-			nwmMap := make(map[node.ID]NodeWithMaterials, userGraph.NodeCount())
+		if u.Material() == nil {
+			nodesInNeed := make([]*model.Node, 0, userGraph.NodeCount())
+			_ = nodesInNeed
+			
 
-			// Add nodes with non reserved materials
-			for _, m := range userMaterials {
-				// If material is reserved or node is nil, that means that material is already being transported
-				if m.IsReserved {
-					continue
-				}
-
-				// Material must have a node if not reserved
-				assert.True(m.Node != nil)
-
-				nwmMap[m.Node.ID] = NodeWithMaterials{
-					m.Node,
-					append(nwmMap[m.Node.ID].Materials, m),
+			// Find nodes with non reserved materials
+			nonReservedNodes := make([]*model.Node, 0, userGraph.NodeCount())
+			for _, n := range userGraph.Nodes() {
+				for _, m := range n.Materials() {
+					if !m.IsReserved() {
+						nonReservedNodes = append(nonReservedNodes, n)
+						break
+					}
 				}
 			}
 			
-			ns := make([]*node.Node, 0, len(nwmMap))
-			for _, nwm := range nwmMap {
-				ns = append(ns, nwm.Node)
-			}
-			
-			if len(ns) == 0 {
+			if len(nonReservedNodes) == 0 {
 				// Move in a random direction like IdleType units, just to be dynamic
 				n, ok := getRandomAdjacentNode()
 				if !ok {
 					return false
 				}
 				
-				u.Actions.PushBack(unit_action.NewMoving(unit.DefaultSpeed, u.Node, n))
+				u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, u.Node(), n))
 				return true
 			}
 
 
-			shortestPath, finalNode := findShortestPathOfMultiple(ns)
+			shortestPath, finalNode := findShortestPathOfMultiple(nonReservedNodes)
 			
-			ms := nwmMap[finalNode.ID].Materials
+			ms := slices.Collect(maps.Values(finalNode.Materials()))
 			m := ms[rand.Intn(len(ms))]
 
-			m.IsReserved = true
+			m.Reserve()
 			
-			if u.Node.ID != finalNode.ID {
+			if u.Node().ID() != finalNode.ID() {
 				for i := range len(shortestPath) - 1 {
 					n1, n2 := shortestPath[i], shortestPath[i + 1]
-					u.Actions.PushBack(unit_action.NewMoving(unit.DefaultSpeed, n1, n2))
+					u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, n1, n2))
 				}
 			}
 			
-			u.Actions.PushBack(unit_action.NewTakeMaterial(m))
+			u.Actions().PushBack(model.NewTakeMaterialUnitAction(m))
 		}
 		
 		// TODO: Move the unit to the end location
 
-		u.Actions.PushBack(unit_action.NewDropMaterial())
+		u.Actions().PushBack(model.NewDropMaterialUnitAction())
 
 		return true
 	default:
@@ -394,92 +318,103 @@ func (s *State) pollActions(userID string, u *unit.Unit) bool {
 	}
 }
 
-func (s *State) executeUnitAction(userID string, u *unit.Unit, action *unit_action.UnitAction) bool {
+func (s *State) executeUnitAction(userID string, u *model.Unit, action *model.UnitAction) bool {
+	justStarted := !action.IsStarted
+
 	if !action.IsStarted {
 		action.IsStarted = true
 	}
 
 	switch action.Type {
-	case unit_action.MovingType:
-		data, ok := action.Data.(*unit_action.MovingData)
+	case model.MovingUnitActionType:
+		data, ok := action.Data.(*model.MovingUnitActionData)
 		assert.True(ok)
 		
-		u.Node = nil
+		if justStarted {
+			u.Node().RemoveUnit(u)
+		}
 
-		dist := vec2.Distance(data.FromNode.Position, data.ToNode.Position)
+		dist := vec2.Distance(data.FromNode.Position(), data.ToNode.Position())
 		data.Progress += data.Speed / dist
 		
 		if data.Progress >= 1.0 {
-			u.Node = data.ToNode
+			data.ToNode.AddUnit(u)
 			return true
 		}
 		
 		return false
 	// TODO: Maybe I should change this logic according to building logic
-	case unit_action.ProductionType:
-		data, ok := action.Data.(*unit_action.ProductionData)
+	case model.ProductionUnitActionType:
+		data, ok := action.Data.(*model.ProductionUnitActionData)
 		assert.True(ok)
 
 		const progressIncrement = 0.1
 		data.Progress += progressIncrement
 		
 		if data.Progress >= 1.0 {
-			assert.Equals(u.Node.Type, node.ProductionType)
-			data, ok := u.Node.Data.(node.ProductionTypeData)
+			data.Progress = 1.0
+
+			assert.Equals(u.Node().Type(), model.ProductionNodeType)
+			data, ok := u.Node().ProductionData()
 			assert.True(ok)
 			
-			switch data {
-			// TODO
-			case node.IncubatorProductionTypeData:
-				unitID, ok := s.NextUnitIDs[userID]
-				assert.True(ok)
-
-				s.Units[userID] = append(s.Units[userID], unit.NewIdle(unitID, u.Node))
-
-				s.NextUnitIDs[userID] += 1
-			case node.WellProductionTypeData:
-				s.Materials[userID] = append(s.Materials[userID], material.New(material.DewType, u.Node))
-			default:
-				panic("unreachable")
+			if data.InputMaterials != nil {
+				// TODO: delete materials in the node
 			}
 
+			if data.OutputMaterials != nil {
+				for typ, count := range data.OutputMaterials {
+					for range count {
+						materialID, ok := s.NextMaterialIDs[userID]
+						assert.True(ok)
+
+						s.Materials[userID][materialID] = model.NewMaterial(materialID, typ, u.Node())
+						
+						s.NextMaterialIDs[userID] += 1
+					}
+				}
+			}
+
+			if data.OutputUnits > 0 {
+				unitID, ok := s.NextUnitIDs[userID]
+				assert.True(ok)
+				s.Units[userID][unitID] = model.NewUnit(unitID, model.IdleUnitType, u.Node())
+
+				s.NextUnitIDs[userID] += 1
+			}
 			return true
 		}
 		
 		return false
-	case unit_action.BuildingType:
+	case model.BuildingUnitActionType:
 		const progressIncrement = 0.1
-		u.Node.BuildProgress += progressIncrement
+		u.Node().Build(progressIncrement)
 		
-		if u.Node.BuildProgress >= 1.0 {
-			u.Node.BuildProgress = 1.0
+		if u.Node().IsBuilt() {
+			buildingData := u.Node().BuildingData()
+
+			_ = buildingData
+			// TODO: Remove materials from node
+
 			return true
 		}
 		
 		return false
 	// TODO: right now this action is instant, maybe consider making it non instant
-	case unit_action.TakeMaterialType:
-		uData, ok := u.Data.(*unit.TransportData)
+	case model.TakeMaterialUnitActionType:
+		assert.Nil(u.Material())
+
+		uaData, ok := action.Data.(*model.TakeMaterialUnitActionData)
 		assert.True(ok)
 
-		uaData, ok := action.Data.(*unit_action.TakeMaterialData)
-		assert.True(ok)
-
-		assert.True(uData.Material == nil)
-
-		uData.Material = uaData.Material
-		uData.Material.Node = nil
+		u.AddMaterial(uaData.Material)
 		
 		return true
-	case unit_action.DropMaterialType:
-		uData, ok := u.Data.(*unit.TransportData)
-		assert.True(ok)
+	case model.DropMaterialUnitActionType:
+		assert.NotNil(u.Material())
 
-		assert.True(uData.Material != nil)
-		
-		uData.Material.IsReserved = false
-		uData.Material.Node = u.Node
-		uData.Material = nil
+		u.Material().UnReserve()
+		u.RemoveMaterial()
 		
 		return true
 	default:
