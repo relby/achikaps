@@ -4,10 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"maps"
 	"math"
+	"math/rand/v2"
+	"slices"
 
 	"github.com/heroiclabs/nakama-common/rtapi"
 	"github.com/heroiclabs/nakama-common/runtime"
+	"github.com/relby/achikaps/assert"
 	"github.com/relby/achikaps/graph"
 	"github.com/relby/achikaps/match_state"
 	"github.com/relby/achikaps/model"
@@ -17,7 +21,7 @@ import (
 
 type Match struct{}
 
-const StartRadius = 100.0
+const StartRadius = model.DefaultNodeRadius * 20
 func onCircle(i, n int, r float64) vec2.Vec2 {
 	angle := float64(i) * 2.0 * math.Pi / float64(n)
 
@@ -60,7 +64,26 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 
 		state.Graphs[userID] = g
 
-		state.NextNodeIDs[userID] = model.ID(2)
+		for i := range 2 {
+			angle := rand.Float64() * 2 * math.Pi
+			radius := model.DefaultNodeRadius * (4 + rand.Float64()*4) // Random radius between 4-8 times DefaultNodeRadius
+			pos := vec2.New(
+				root.Position().X + radius*math.Cos(angle),
+				root.Position().Y + radius*math.Sin(angle),
+			)
+			
+			n := model.NewNode(
+				model.ID(i + 2),
+				model.SandTransitNodeName,
+				pos,
+			)
+			n.BuildFully()
+			
+			err := g.AddNodeFrom(root, n)
+			assert.NoError(err)
+		}
+
+		state.NextNodeIDs[userID] = model.ID(3)
 		
 		state.Units[userID] = map[model.ID]*model.Unit{
 			1: model.NewUnit(1, model.IdleUnitType, root),
@@ -112,6 +135,7 @@ func (m *Match) MatchJoin(ctx context.Context, logger runtime.Logger, db *sql.DB
 
 	type initialStateResp struct {
 		Nodes map[string]map[model.ID]*model.Node
+		Connections map[string]map[model.ID][]model.ID
 		Units map[string]map[model.ID]*model.Unit
 		Materials map[string]map[model.ID]*model.Material
 	}
@@ -119,8 +143,15 @@ func (m *Match) MatchJoin(ctx context.Context, logger runtime.Logger, db *sql.DB
 	resp := &initialStateResp{}
 
 	resp.Nodes = make(map[string]map[model.ID]*model.Node, len(matchState.Graphs))
+	resp.Connections = make(map[string]map[model.ID][]model.ID, len(matchState.Graphs))
 	for uID, g := range matchState.Graphs {
 		resp.Nodes[uID] = g.Nodes()
+
+		am := g.AdjacencyMap()
+		resp.Connections[uID] = make(map[model.ID][]model.ID, len(am))
+		for k, v := range am {
+			resp.Connections[uID][k] = slices.Collect(maps.Keys(v))
+		}
 	}
 
 	resp.Units = matchState.Units

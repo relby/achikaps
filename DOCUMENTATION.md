@@ -67,6 +67,7 @@
     ```json
     {
         "Nodes": Map<UserID, Map<NodeID, Node>>
+        "Connections": Map<UserID, Map<NodeID, List<NodeID>>>
         "Units": Map<UserID, Map<UnitID, Unit>>
         "Materials": Map<UserID, Map<MaterialID, Material>>
     }

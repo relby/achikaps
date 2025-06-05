@@ -1,11 +1,13 @@
 package main
 
 import (
-	"crypto/rand"
 	"fmt"
+	"math"
+	"math/rand"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/heroiclabs/nakama-common/runtime"
+	"github.com/relby/achikaps/assert"
 	"github.com/relby/achikaps/graph"
 	"github.com/relby/achikaps/match_state"
 	"github.com/relby/achikaps/model"
@@ -65,7 +67,26 @@ func main() {
 
 	state.Graphs[id] = g
 
-	state.NextNodeIDs[id] = model.ID(2)
+	for i := range 2 {
+		angle := rand.Float64() * 2 * math.Pi
+		radius := model.DefaultNodeRadius * (4 + rand.Float64()*4) // Random radius between 4-8 times DefaultNodeRadius
+		pos := vec2.New(
+			root.Position().X + radius*math.Cos(angle),
+			root.Position().Y + radius*math.Sin(angle),
+		)
+		
+		n := model.NewNode(
+			model.ID(i + 2),
+			model.SandTransitNodeName,
+			pos,
+		)
+		n.BuildFully()
+		
+		err := g.AddNodeFrom(root, n)
+		assert.NoError(err)
+	}
+
+	state.NextNodeIDs[id] = model.ID(4)
 	
 	state.Units[id] = map[model.ID]*model.Unit{
 		1: model.NewUnit(1, model.IdleUnitType, root),
