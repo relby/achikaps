@@ -115,6 +115,9 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 	userGraph, ok := s.Graphs[userID]
 	assert.True(ok)
 
+	userMaterials, ok := s.Materials[userID]
+	assert.True(ok)
+
 	// Unit should always have a node when polling for actions
 	assert.NotNil(u.Node())
 
@@ -186,7 +189,7 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 		finalNode := u.Node()
 		// If unit is not in the production node find the node with the least amount of units
 		if u.Node().Type() != model.ProductionNodeType {
-			prodNodes := userGraph.NodesByType(model.ProductionNodeType)
+			prodNodes := userGraph.NodesByType(model.ProductionNodeType, true)
 			
 			if len(prodNodes) == 0 {
 				// Move in a random direction like IdleType units, just to be dynamic
@@ -336,58 +339,118 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 		u.Actions().PushBack(model.NewBuildingUnitAction())
 	case model.TransportUnitType:
 		// TODO:
-		// Move in a random direction like IdleType units, just to be dynamic
-		n, ok := getRandomAdjacentNode()
-		if !ok {
-			return
+		neededMaterials := make(
+			map[model.MaterialType]struct{Node *model.Node; Count uint},
+			userGraph.NodeCount(),
+		)
+		
+		for _, n := range userGraph.BuildingNodes() {
+			enoughMaterials := false
+			data := n.BuildingData()
+			for _, m := range n.InputMaterials() {
+				c, exists := data.Materials[m.Type()];
+				if !exists {
+					continue
+				}
+				// Ensure that there's at least 1 input material to build a node
+				assert.NotEquals(c, 0)
+
+				c -= 1
+				if c == 0 {
+					delete(data.Materials, m.Type())
+					if len(data.Materials) == 0 {
+						enoughMaterials = true
+						break
+					}
+				}
+
+				data.Materials[m.Type()] = c
+			}
+			
+			if enoughMaterials {
+				continue
+			}
+			
+			for matType, count := range data.Materials {
+				neededMaterials[matType] = struct{Node *model.Node; Count uint}{n, count}
+			}
+		}
+
+		for _, n := range userGraph.NodesByType(model.ProductionNodeType, true) {
+			enoughMaterials := false
+			data, ok := n.ProductionData()
+			assert.True(ok)
+
+			for _, m := range n.InputMaterials() {
+				c, exists := data.InputMaterials[m.Type()];
+				if !exists {
+					continue
+				}
+				// Ensure that there's at least 1 input material to build a node
+				assert.NotEquals(c, 0)
+
+				c -= 1
+				if c == 0 {
+					delete(data.InputMaterials, m.Type())
+					if len(data.InputMaterials) == 0 {
+						enoughMaterials = true
+						break
+					}
+				}
+
+				data.InputMaterials[m.Type()] = c
+			}
+			
+			if enoughMaterials {
+				continue
+			}
+			
+			for matType, count := range data.InputMaterials {
+				neededMaterials[matType] = struct{Node *model.Node; Count uint}{n, count}
+			}
 		}
 		
-		u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, u.Node(), n))
-		return
-		// nodesInNeed := make([]*model.Node, 0, userGraph.NodeCount())
-		
-		// // Find nodes with non reserved materials
-		// nonReservedNodes := make([]*model.Node, 0, userGraph.NodeCount())
-		// for _, n := range userGraph.Nodes() {
-		// 	for _, m := range n.Materials() {
-		// 		if !m.IsReserved() {
-		// 			nonReservedNodes = append(nonReservedNodes, n)
-		// 			break
-		// 		}
-		// 	}
-		// }
-		
-		// if len(nonReservedNodes) == 0 {
-		// 	// Move in a random direction like IdleType units, just to be dynamic
-		// 	n, ok := getRandomAdjacentNode()
-		// 	if !ok {
-		// 		return
-		// 	}
+		if len(neededMaterials) == 0 {
+			// Move in a random direction like IdleType units, just to be dynamic
+			n, ok := getRandomAdjacentNode()
+			if !ok {
+				return
+			}
 			
-		// 	u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, u.Node(), n))
-		// 	return
-		// }
-
-
-		// shortestPath, finalNode := findShortestPathOfMultiple(nonReservedNodes)
+			u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, u.Node(), n))
+		}
 		
-		// ms := slices.Collect(maps.Values(finalNode.Materials()))
-		// m := ms[rand.Intn(len(ms))]
+		for _, m := range userMaterials {
+			if !m.IsReserved() && !m.NodeData().IsInput {
+				matData, ok := neededMaterials[m.Type()]
+				if !ok {
+					continue
+				}
+				
+				m.Reserve()
+				
+				if u.Node() != m.NodeData().Node {
+					shortestPath := userGraph.FindShortestPath(u.Node(), m.NodeData().Node)
+					for i := range len(shortestPath) - 1 {
+						n1, n2 := shortestPath[i], shortestPath[i + 1]
+						u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, n1, n2))
+					}
+				}
+				
+				u.Actions().PushBack(model.NewTakeMaterialUnitAction(m))
 
-		// m.Reserve()
-		
-		// if u.Node().ID() != finalNode.ID() {
-		// 	for i := range len(shortestPath) - 1 {
-		// 		n1, n2 := shortestPath[i], shortestPath[i + 1]
-		// 		u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, n1, n2))
-		// 	}
-		// }
-		
-		// u.Actions().PushBack(model.NewTakeMaterialUnitAction(m))
-		
-		// // TODO: Move the unit to the end location
+				if u.Node() != matData.Node {
+					shortestPath := userGraph.FindShortestPath(u.Node(), matData.Node)
+					for i := range len(shortestPath) - 1 {
+						n1, n2 := shortestPath[i], shortestPath[i + 1]
+						u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, n1, n2))
+					}
+				}
 
-		// u.Actions().PushBack(model.NewDropMaterialUnitAction())
+				u.Actions().PushBack(model.NewDropMaterialUnitAction())
+				break
+			}
+		}
 	default:
 		panic("unreachable")
 	}

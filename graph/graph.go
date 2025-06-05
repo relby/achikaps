@@ -86,14 +86,16 @@ func (g *Graph) AddNodeFrom(n1, n2 *model.Node) (error) {
 	return nil
 }
 
-func (g *Graph) NodesByType(typ model.NodeType) []*model.Node {
+func (g *Graph) NodesByType(typ model.NodeType, isBuilt bool) []*model.Node {
 	ns := g.Nodes()
 	
 	out := make([]*model.Node, 0, len(ns))
 
 	for _, n := range ns {
 		if n.Type() == typ {
-			out = append(out, n)
+			if isBuilt == n.IsBuilt() {
+				out = append(out, n)
+			}
 		}
 	}
 	

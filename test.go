@@ -120,12 +120,12 @@ func main() {
 		return
 	}
 
-	state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n, true)
-	c += 1
-	state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n, true)
-	c += 1
-	state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n, true)
-	c += 1
+	// state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n, true)
+	// c += 1
+	// state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n, true)
+	// c += 1
+	// state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n, true)
+	// c += 1
 	// state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n)
 	// c += 1
 
