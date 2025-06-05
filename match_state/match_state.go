@@ -234,7 +234,7 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 
 		enoughMaterials := false
 		if len(data.InputMaterials) >= 0 {
-			for _, m := range finalNode.Materials() {
+			for _, m := range finalNode.InputMaterials() {
 				c, exists := data.InputMaterials[m.Type()];
 				if !exists {
 					continue
@@ -288,7 +288,7 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 			assert.NotEquals(len(data.Materials), 0)
 
 			enoughMaterials := false
-			for _, m := range n.Materials() {
+			for _, m := range n.InputMaterials() {
 				c, exists := data.Materials[m.Type()];
 				if !exists {
 					continue
@@ -439,7 +439,7 @@ func (s *State) executeUnitAction(userID string, u *model.Unit, action *model.Un
 			assert.True(ok)
 			
 			for _, m := range uaData.InputMaterials {
-				m.Node().RemoveMaterial(m)
+				m.NodeData().Node.RemoveInputMaterial(m)
 				delete(userMaterials, m.ID())
 			}
 
@@ -449,7 +449,7 @@ func (s *State) executeUnitAction(userID string, u *model.Unit, action *model.Un
 						materialID, ok := s.NextMaterialIDs[userID]
 						assert.True(ok)
 
-						userMaterials[materialID] = model.NewMaterial(materialID, typ, u.Node())
+						userMaterials[materialID] = model.NewMaterial(materialID, typ, u.Node(), false)
 						
 						s.NextMaterialIDs[userID] += 1
 					}
@@ -472,8 +472,8 @@ func (s *State) executeUnitAction(userID string, u *model.Unit, action *model.Un
 		u.Node().Build(progressIncrement)
 		
 		if u.Node().IsBuilt() {
-			for _, m := range u.Node().Materials() {
-				m.Node().RemoveMaterial(m)
+			for _, m := range u.Node().InputMaterials() {
+				m.NodeData().Node.RemoveInputMaterial(m)
 				delete(userMaterials, m.ID())
 			}
 

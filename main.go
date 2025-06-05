@@ -97,15 +97,15 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 		state.Materials[userID] = make(map[model.ID]*model.Material, 28)
 		c := 1
 		for range 20 {
-			state.Materials[userID][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, root)
+			state.Materials[userID][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, root, false)
 			c += 1
 		}
 		for range 6 {
-			state.Materials[userID][model.ID(c)] = model.NewMaterial(model.ID(c), model.SandMaterialType, root)
+			state.Materials[userID][model.ID(c)] = model.NewMaterial(model.ID(c), model.SandMaterialType, root, false)
 			c += 1
 		}
 		for range 2 {
-			state.Materials[userID][model.ID(c)] = model.NewMaterial(model.ID(c), model.DewMaterialType, root)
+			state.Materials[userID][model.ID(c)] = model.NewMaterial(model.ID(c), model.DewMaterialType, root, false)
 			c += 1
 		}
 	}

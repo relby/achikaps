@@ -100,15 +100,15 @@ func main() {
 	state.Materials[id] = make(map[model.ID]*model.Material, 28)
 	c := 1
 	for range 20 {
-		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, root)
+		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, root, false)
 		c += 1
 	}
 	for range 6 {
-		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.SandMaterialType, root)
+		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.SandMaterialType, root, false)
 		c += 1
 	}
 	for range 2 {
-		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.DewMaterialType, root)
+		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.DewMaterialType, root, false)
 		c += 1
 	}
 
@@ -120,11 +120,11 @@ func main() {
 		return
 	}
 
-	state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n)
+	state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n, true)
 	c += 1
-	state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n)
+	state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n, true)
 	c += 1
-	state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n)
+	state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n, true)
 	c += 1
 	// state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n)
 	// c += 1

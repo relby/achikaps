@@ -21,17 +21,35 @@ const (
 	AmberMaterialType
 )
 
+type NodeData struct {
+	Node *Node
+	IsInput bool
+}
+
+func newNodeData(node *Node, isInput bool) *NodeData {
+	return &NodeData{node, isInput}
+}
+
 type Material struct {
 	id ID
 	typ MaterialType
-	node *Node
+	nodeData *NodeData
 	isReserved bool
 }
 
-func NewMaterial(id ID, typ MaterialType, n *Node) *Material {
-	m := &Material{id, typ, nil, false}
+func NewMaterial(id ID, typ MaterialType, n *Node, isInput bool) *Material {
+	m := &Material{
+		id,
+		typ,
+		nil,
+		false,
+	}
 	
-	n.AddMaterial(m)
+	if isInput {
+		n.AddInputMaterial(m)
+	} else {
+		n.AddOutputMaterial(m)
+	}
 	
 	return m
 }
@@ -44,8 +62,8 @@ func (m *Material) Type() MaterialType {
 	return m.typ
 }
 
-func (m *Material) Node() *Node {
-	return m.node
+func (m *Material) NodeData() *NodeData {
+	return m.nodeData
 }
 
 func (m *Material) IsReserved() bool {
@@ -66,14 +84,14 @@ func (m *Material) MarshalJSON() ([]byte, error) {
 	type materialJSON struct {
 		ID      ID
 		Type    MaterialType
-		Node    *Node
+		NodeData    *NodeData
 		IsReserved bool
 	}
 
 	materialData := materialJSON{
 		ID:      m.id,
 		Type:    m.typ,
-		Node:    m.node,
+		NodeData:    m.nodeData,
 		IsReserved: m.isReserved,
 	}
 

@@ -76,10 +76,10 @@ func (u *Unit) SetType(t UnitType) {
 			if u.material == nil {
 				break
 			}
-			assert.Nil(u.material.Node())
+			assert.Nil(u.material.NodeData())
 
 			if u.node != nil {
-				u.node.AddMaterial(u.material)
+				u.node.AddOutputMaterial(u.material)
 			} else {
 				// In here unit is moving
 				assert.NotEquals(u.actions.Len(), 0)
@@ -90,7 +90,7 @@ func (u *Unit) SetType(t UnitType) {
 				movingActionData, ok := movingAction.Data.(*MovingUnitActionData)
 				assert.True(ok)
 
-				movingActionData.FromNode.AddMaterial(u.material)
+				movingActionData.FromNode.AddOutputMaterial(u.material)
 			}
 	}
 
@@ -110,7 +110,7 @@ func (u *Unit) AddMaterial(m *Material) {
 	assert.Equals(u.typ, TransportUnitType)
 	assert.Nil(u.material)
 	
-	u.node.RemoveMaterial(m)
+	u.node.RemoveOutputMaterial(m)
 	
 	u.material = m
 }
@@ -119,7 +119,7 @@ func (u *Unit) RemoveMaterial() {
 	assert.Equals(u.typ, TransportUnitType)
 	assert.NotNil(u.material)
 	
-	u.node.AddMaterial(u.material)
+	u.node.AddInputMaterial(u.material)
 	
 	u.material = nil
 }

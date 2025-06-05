@@ -66,7 +66,8 @@ type Node struct {
 	radius   float64
 	buildProgress float64
 	units map[ID]*Unit
-	materials map[ID]*Material
+	inputMaterials map[ID]*Material
+	outputMaterials map[ID]*Material
 }
 
 func NewNode(id ID, name NodeName, pos vec2.Vec2) *Node {
@@ -78,6 +79,7 @@ func NewNode(id ID, name NodeName, pos vec2.Vec2) *Node {
 		DefaultNodeRadius,
 		0,
 		make(map[ID]*Unit),
+		make(map[ID]*Material),
 		make(map[ID]*Material),
 	}
 }
@@ -147,24 +149,46 @@ func (n *Node) RemoveUnit(u *Unit) {
 	delete(n.units, u.id)
 }
 
-func (n *Node) Materials() map[ID]*Material {
-	return n.materials
+func (n *Node) InputMaterials() map[ID]*Material {
+	return n.inputMaterials
 }
 
-func (n *Node) AddMaterial(m *Material) {
-	assert.Nil(m.node)
-	m.node = n
-	n.materials[m.id] = m
+func (n *Node) AddInputMaterial(m *Material) {
+	assert.Nil(m.nodeData)
+	m.nodeData = newNodeData(n, true)
+	n.inputMaterials[m.id] = m
 }
 
-func (n *Node) RemoveMaterial(m *Material) {
-	assert.NotNil(m.node)
-	assert.Equals(m.node.id, n.id)
-	_, exists := n.materials[m.id]
+func (n *Node) RemoveInputMaterial(m *Material) {
+	assert.NotNil(m.nodeData)
+	assert.True(m.nodeData.IsInput)
+	assert.Equals(m.nodeData.Node.id, n.id)
+	_, exists := n.inputMaterials[m.id]
 	assert.True(exists)
 
-	m.node = nil
-	delete(n.materials, m.id)
+	m.nodeData = nil
+	delete(n.inputMaterials, m.id)
+}
+
+func (n *Node) OutputMaterials() map[ID]*Material {
+	return n.outputMaterials
+}
+
+func (n *Node) AddOutputMaterial(m *Material) {
+	assert.Nil(m.nodeData)
+	m.nodeData = newNodeData(n, false)
+	n.outputMaterials[m.id] = m
+}
+
+func (n *Node) RemoveOutputMaterial(m *Material) {
+	assert.NotNil(m.nodeData)
+	assert.False(m.nodeData.IsInput)
+	assert.Equals(m.nodeData.Node.id, n.id)
+	_, exists := n.outputMaterials[m.id]
+	assert.True(exists)
+
+	m.nodeData = nil
+	delete(n.outputMaterials, m.id)
 }
 
 func (n *Node) MarshalJSON() ([]byte, error) {
