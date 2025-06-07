@@ -47,7 +47,7 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 		Materials: make(map[string]map[model.ID]*model.Material, len(players)),
 		NextMaterialIDs: make(map[string]model.ID, len(players)),
 
-		ClientUpdates: make(map[string][]*model.UnitAction, len(players)),
+		ClientUpdates: make(map[string][]*match_state.ClientUpdate, len(players)),
 	}
 	
 	for i, p := range players {

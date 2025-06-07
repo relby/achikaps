@@ -13,6 +13,19 @@ import (
 	"github.com/relby/achikaps/vec2"
 )
 
+type ClientUpdate struct {
+	Unit *model.Unit
+	UnitAction *model.UnitAction
+}
+
+func NewClientUpdate(unit *model.Unit, action *model.UnitAction) *ClientUpdate {
+	return &ClientUpdate{
+		unit,
+		action,
+	}
+}
+
+
 type State struct {
 	Presences   map[string]runtime.Presence
 
@@ -25,7 +38,7 @@ type State struct {
 	Materials map[string]map[model.ID]*model.Material
 	NextMaterialIDs map[string]model.ID
 	
-	ClientUpdates map[string][]*model.UnitAction
+	ClientUpdates map[string][]*ClientUpdate
 }
 
 func (s *State) BuildNode(userID string, fromID model.ID, name model.NodeName, pos vec2.Vec2) (*model.Node, error) {
@@ -99,7 +112,7 @@ func (s *State) Tick() {
 			
 			// Action is about to start, add client updates
 			if !action.IsStarted {
-				s.ClientUpdates[userID] = append(s.ClientUpdates[userID], action)
+				s.ClientUpdates[userID] = append(s.ClientUpdates[userID], NewClientUpdate(u, action))
 			}
 
 			done := s.executeUnitAction(userID, u, action)

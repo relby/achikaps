@@ -50,7 +50,7 @@ func main() {
 		Materials: make(map[string]map[model.ID]*model.Material),
 		NextMaterialIDs: make(map[string]model.ID),
 		
-		ClientUpdates: make(map[string][]*model.UnitAction),
+		ClientUpdates: make(map[string][]*match_state.ClientUpdate),
 	}
 
 	state.Presences[id] = &MyPresence{username: "test"}

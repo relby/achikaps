@@ -103,7 +103,15 @@
     ```
     2. Ошибка: `{"error": string}`
 - 3. Начало выполнение действия юнитом
-  - Ответ: Модель UserAction
+  - Ответ: `Map<UserID, ClientUpdate>`
+
+  Модель `ClientUpdate`
+  ```json
+  {
+    "Unit": Unit
+    "UnitAction": UnitAction
+  }
+  ```
 - 4. Изменение типа юнита
   - Запрос:
   ```json
