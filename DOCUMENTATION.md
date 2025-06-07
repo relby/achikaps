@@ -48,6 +48,11 @@
 {
     "Material": Material
 }
+// DropMaterialUnitActionData
+{}
+// BuildingUnitActionData
+{}
+
 ```
 
 - Материал (Material)
