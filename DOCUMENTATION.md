@@ -34,6 +34,7 @@
 // MovingUnitActionData
 {
     "Speed": float64
+    "TimeMs": float64
     "FromNode": Node // От этой ноды юнит начал движение
     "ToNode": Node // К этой ноде движется юнит
     "Progress": float64 // Значение от 0 до 1, обозначающее продвижение по дороге от одной ноде к другой

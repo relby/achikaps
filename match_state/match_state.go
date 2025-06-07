@@ -13,6 +13,8 @@ import (
 	"github.com/relby/achikaps/vec2"
 )
 
+const TickRate = 5
+
 type ClientUpdate struct {
 	Unit *model.Unit
 	UnitAction *model.UnitAction
@@ -24,7 +26,6 @@ func NewClientUpdate(unit *model.Unit, action *model.UnitAction) *ClientUpdate {
 		action,
 	}
 }
-
 
 type State struct {
 	Presences   map[string]runtime.Presence

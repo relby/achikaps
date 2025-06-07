@@ -12,6 +12,7 @@ import (
 	"github.com/heroiclabs/nakama-common/rtapi"
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/relby/achikaps/assert"
+	"github.com/relby/achikaps/consts"
 	"github.com/relby/achikaps/graph"
 	"github.com/relby/achikaps/match_state"
 	"github.com/relby/achikaps/model"
@@ -110,7 +111,7 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 		}
 	}
 
-	tickRate := 5 // 1 tick per second = 1 MatchLoop func invocations per second
+	tickRate := consts.TickRate // 1 tick per second = 1 MatchLoop func invocations per second
 	label := "achikaps"
 	return state, tickRate, label
 }
