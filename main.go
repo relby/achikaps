@@ -260,7 +260,7 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
 		}
 
 		message.MatchmakerAdd.Query = "*"
-		message.MatchmakerAdd.MinCount = 2
+		message.MatchmakerAdd.MinCount = 1
 		message.MatchmakerAdd.MaxCount = 6
 
 		return in, nil
