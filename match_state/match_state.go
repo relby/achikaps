@@ -8,24 +8,14 @@ import (
 
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/relby/achikaps/assert"
+	"github.com/relby/achikaps/config"
 	"github.com/relby/achikaps/graph"
 	"github.com/relby/achikaps/model"
+	"github.com/relby/achikaps/opcode"
 	"github.com/relby/achikaps/vec2"
+	"github.com/relby/achikaps/win_condition"
 )
 
-const TickRate = 5
-
-type ClientUpdate struct {
-	Unit *model.Unit
-	UnitAction *model.UnitAction
-}
-
-func NewClientUpdate(unit *model.Unit, action *model.UnitAction) *ClientUpdate {
-	return &ClientUpdate{
-		unit,
-		action,
-	}
-}
 
 type State struct {
 	Presences   map[string]runtime.Presence
@@ -39,25 +29,27 @@ type State struct {
 	Materials map[string]map[model.ID]*model.Material
 	NextMaterialIDs map[string]model.ID
 	
-	ClientUpdates map[string][]*ClientUpdate
+	WinCondition *win_condition.WinCondition
+	
+	UnitActionExecutes map[string][]*opcode.UnitActionExecuteResp
 }
 
-func (s *State) BuildNode(userID string, fromID model.ID, name model.NodeName, pos vec2.Vec2) (*model.Node, error) {
-	userGraph, ok := s.Graphs[userID]
+func (s *State) BuildNode(sessionID string, fromID model.ID, name model.NodeName, pos vec2.Vec2) (*model.Node, error) {
+	playerGraph, ok := s.Graphs[sessionID]
 	assert.True(ok)
 	
-	fromNode, err := userGraph.Node(fromID)
+	fromNode, err := playerGraph.Node(fromID)
 	if errors.Is(err, graph.ErrEdgeNotFound) {
 		return nil, fmt.Errorf("node not found: %w", err)
 	}
 	assert.NoError(err)
 	
-	toNodeID, ok := s.NextNodeIDs[userID]
+	toNodeID, ok := s.NextNodeIDs[sessionID]
 	assert.True(ok)
 
 	toNode := model.NewNode(toNodeID, name, pos)
 	
-	if fromNode.DistanceTo(toNode) > 10 * model.DefaultNodeRadius {
+	if fromNode.DistanceTo(toNode) > 10 * config.NodeRadius {
 		return nil, fmt.Errorf("new node is too far")
 	}
 
@@ -71,20 +63,20 @@ func (s *State) BuildNode(userID string, fromID model.ID, name model.NodeName, p
 		}
 	}
 
-	if err := userGraph.AddNodeFrom(fromNode, toNode); err != nil {
+	if err := playerGraph.AddNodeFrom(fromNode, toNode); err != nil {
 		return nil, fmt.Errorf("can't add node: %w", err)
 	}
 
-	s.NextNodeIDs[userID] += 1
+	s.NextNodeIDs[sessionID] += 1
 
 	return toNode, nil
 }
 
-func (s *State) ChangeUnitType(userID string, id model.ID, typ model.UnitType) (*model.Unit, error) {
-	userUnits, ok := s.Units[userID]
+func (s *State) ChangeUnitType(sessionID string, id model.ID, typ model.UnitType) (*model.Unit, error) {
+	playerUnits, ok := s.Units[sessionID]
 	assert.True(ok)
 	
-	u, exists := userUnits[id]
+	u, exists := playerUnits[id]
 	if !exists {
 		return nil, fmt.Errorf("unit not found")
 	}
@@ -95,15 +87,15 @@ func (s *State) ChangeUnitType(userID string, id model.ID, typ model.UnitType) (
 }
 
 func (s *State) Tick() {
-	for userID, units := range s.Units {
+	for sessionID, units := range s.Units {
 		for _, u := range units {
 			if u.Actions().Len() == 0 {
-				s.pollActions(userID, u)
+				s.pollActions(sessionID, u)
 			}
 		}
 	}
 		
-	for userID, units := range s.Units {
+	for sessionID, units := range s.Units {
 		for _, u := range units {
 			if u.Actions().Len() == 0 {
 				continue
@@ -113,10 +105,10 @@ func (s *State) Tick() {
 			
 			// Action is about to start, add client updates
 			if !action.IsStarted {
-				s.ClientUpdates[userID] = append(s.ClientUpdates[userID], NewClientUpdate(u, action))
+				s.UnitActionExecutes[sessionID] = append(s.UnitActionExecutes[sessionID], opcode.NewUnitActionExecuteResp(u, action))
 			}
 
-			done := s.executeUnitAction(userID, u, action)
+			done := s.executeUnitAction(sessionID, u, action)
 			if done {
 				u.Actions().PopFront()
 			}
@@ -125,18 +117,18 @@ func (s *State) Tick() {
 }
 
 // pollActions tries to add action to a unit
-func (s *State) pollActions(userID string, u *model.Unit) {
-	userGraph, ok := s.Graphs[userID]
+func (s *State) pollActions(sessionID string, u *model.Unit) {
+	playerGraph, ok := s.Graphs[sessionID]
 	assert.True(ok)
 
-	userMaterials, ok := s.Materials[userID]
+	playerMaterials, ok := s.Materials[sessionID]
 	assert.True(ok)
 
 	// Unit should always have a node when polling for actions
 	assert.NotNil(u.Node())
 
 	getRandomAdjacentNode := func() (*model.Node, bool) {
-		am := userGraph.AdjacencyMap()
+		am := playerGraph.AdjacencyMap()
 		adjacentNodeMap, ok := am[u.Node().ID()]
 		assert.True(ok)
 
@@ -148,7 +140,7 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 		// Filter out nodes that are not built yet
 		builtNodes := make([]*model.Node, 0, len(adjacentNodes))
 		for _, nID := range adjacentNodes {
-			n, err := userGraph.Node(nID)
+			n, err := playerGraph.Node(nID)
 			assert.NoError(err)
 
 			if n.IsBuilt() {
@@ -170,7 +162,7 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 		var finalNode *model.Node
 		pathDist := math.MaxFloat64
 		for _, n := range ns {
-			ns := userGraph.FindShortestPath(u.Node(), n)
+			ns := playerGraph.FindShortestPath(u.Node(), n)
 			
 			// Calculate the total path length
 			totalDist := 0.0
@@ -198,12 +190,12 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 			return
 		}
 
-		u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, u.Node(), n))
+		u.Actions().PushBack(model.NewMovingUnitAction(config.UnitSpeed, u.Node(), n))
 	case model.ProductionUnitType:
 		finalNode := u.Node()
 		// If unit is not in the production node find the node with the least amount of units
 		if u.Node().Type() != model.ProductionNodeType {
-			prodNodes := userGraph.NodesByType(model.ProductionNodeType, true)
+			prodNodes := playerGraph.NodesByType(model.ProductionNodeType, true)
 			
 			if len(prodNodes) == 0 {
 				// Move in a random direction like IdleType units, just to be dynamic
@@ -212,7 +204,7 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 					return
 				}
 				
-				u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, u.Node(), n))
+				u.Actions().PushBack(model.NewMovingUnitAction(config.UnitSpeed, u.Node(), n))
 				return
 			}
 			
@@ -234,11 +226,11 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 				}
 			}
 
-			ns := userGraph.FindShortestPath(u.Node(), leastPopulatedNode)
+			ns := playerGraph.FindShortestPath(u.Node(), leastPopulatedNode)
 
 			for i := range len(ns) - 1 {
 				n1, n2 := ns[i], ns[i + 1]
-				u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, n1, n2))
+				u.Actions().PushBack(model.NewMovingUnitAction(config.UnitSpeed, n1, n2))
 			}
 
 			finalNode = leastPopulatedNode
@@ -284,7 +276,7 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 
 		u.Actions().PushBack(model.NewProductionUnitAction(inputMaterials))
 	case model.BuilderUnitType:
-		buildingNodes := userGraph.BuildingNodes()
+		buildingNodes := playerGraph.BuildingNodes()
 		if len(buildingNodes) == 0 {
 			// Move in a random direction like IdleType units, just to be dynamic
 			n, ok := getRandomAdjacentNode()
@@ -292,7 +284,7 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 				return
 			}
 			
-			u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, u.Node(), n))
+			u.Actions().PushBack(model.NewMovingUnitAction(config.UnitSpeed, u.Node(), n))
 			return
 		}
 		
@@ -337,7 +329,7 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 				return
 			}
 			
-			u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, u.Node(), n))
+			u.Actions().PushBack(model.NewMovingUnitAction(config.UnitSpeed, u.Node(), n))
 			return
 		}
 
@@ -346,7 +338,7 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 		if u.Node().ID() != finalNode.ID() {
 			for i := range len(shortestPath) - 1 {
 				n1, n2 := shortestPath[i], shortestPath[i + 1]
-				u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, n1, n2))
+				u.Actions().PushBack(model.NewMovingUnitAction(config.UnitSpeed, n1, n2))
 			}
 		}
 		
@@ -355,10 +347,10 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 		// TODO:
 		neededMaterials := make(
 			map[model.MaterialType]struct{Node *model.Node; Count uint},
-			userGraph.NodeCount(),
+			playerGraph.NodeCount(),
 		)
 		
-		for _, n := range userGraph.BuildingNodes() {
+		for _, n := range playerGraph.BuildingNodes() {
 			enoughMaterials := false
 			data := n.BuildingData()
 			for _, m := range n.InputMaterials() {
@@ -390,7 +382,7 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 			}
 		}
 
-		for _, n := range userGraph.NodesByType(model.ProductionNodeType, true) {
+		for _, n := range playerGraph.NodesByType(model.ProductionNodeType, true) {
 			enoughMaterials := false
 			data, ok := n.ProductionData()
 			assert.True(ok)
@@ -431,10 +423,10 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 				return
 			}
 			
-			u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, u.Node(), n))
+			u.Actions().PushBack(model.NewMovingUnitAction(config.UnitSpeed, u.Node(), n))
 		}
 		
-		for _, m := range userMaterials {
+		for _, m := range playerMaterials {
 			if !m.IsReserved() && !m.NodeData().IsInput {
 				matData, ok := neededMaterials[m.Type()]
 				if !ok {
@@ -444,20 +436,20 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 				m.Reserve()
 				
 				if u.Node() != m.NodeData().Node {
-					shortestPath := userGraph.FindShortestPath(u.Node(), m.NodeData().Node)
+					shortestPath := playerGraph.FindShortestPath(u.Node(), m.NodeData().Node)
 					for i := range len(shortestPath) - 1 {
 						n1, n2 := shortestPath[i], shortestPath[i + 1]
-						u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, n1, n2))
+						u.Actions().PushBack(model.NewMovingUnitAction(config.UnitSpeed, n1, n2))
 					}
 				}
 				
 				u.Actions().PushBack(model.NewTakeMaterialUnitAction(m))
 
 				if u.Node() != matData.Node {
-					shortestPath := userGraph.FindShortestPath(u.Node(), matData.Node)
+					shortestPath := playerGraph.FindShortestPath(u.Node(), matData.Node)
 					for i := range len(shortestPath) - 1 {
 						n1, n2 := shortestPath[i], shortestPath[i + 1]
-						u.Actions().PushBack(model.NewMovingUnitAction(model.DefaultUnitSpeed, n1, n2))
+						u.Actions().PushBack(model.NewMovingUnitAction(config.UnitSpeed, n1, n2))
 					}
 				}
 
@@ -470,11 +462,11 @@ func (s *State) pollActions(userID string, u *model.Unit) {
 	}
 }
 
-func (s *State) executeUnitAction(userID string, u *model.Unit, action *model.UnitAction) bool {
-	userUnits, ok := s.Units[userID]
+func (s *State) executeUnitAction(sessionID string, u *model.Unit, action *model.UnitAction) bool {
+	playerUnits, ok := s.Units[sessionID]
 	assert.True(ok)
 
-	userMaterials, ok := s.Materials[userID]
+	playerMaterials, ok := s.Materials[sessionID]
 	assert.True(ok)
 
 	justStarted := !action.IsStarted
@@ -517,28 +509,28 @@ func (s *State) executeUnitAction(userID string, u *model.Unit, action *model.Un
 			
 			for _, m := range uaData.InputMaterials {
 				m.NodeData().Node.RemoveInputMaterial(m)
-				delete(userMaterials, m.ID())
+				delete(playerMaterials, m.ID())
 			}
 
 			if prodData.OutputMaterials != nil {
 				for typ, count := range prodData.OutputMaterials {
 					for range count {
-						materialID, ok := s.NextMaterialIDs[userID]
+						materialID, ok := s.NextMaterialIDs[sessionID]
 						assert.True(ok)
 
-						userMaterials[materialID] = model.NewMaterial(materialID, typ, u.Node(), false)
+						playerMaterials[materialID] = model.NewMaterial(materialID, typ, u.Node(), false)
 						
-						s.NextMaterialIDs[userID] += 1
+						s.NextMaterialIDs[sessionID] += 1
 					}
 				}
 			}
 
 			if prodData.OutputUnits > 0 {
-				unitID, ok := s.NextUnitIDs[userID]
+				unitID, ok := s.NextUnitIDs[sessionID]
 				assert.True(ok)
-				userUnits[unitID] = model.NewUnit(unitID, model.IdleUnitType, u.Node())
+				playerUnits[unitID] = model.NewUnit(unitID, model.IdleUnitType, u.Node())
 
-				s.NextUnitIDs[userID] += 1
+				s.NextUnitIDs[sessionID] += 1
 			}
 			return true
 		}
@@ -551,7 +543,7 @@ func (s *State) executeUnitAction(userID string, u *model.Unit, action *model.Un
 		if u.Node().IsBuilt() {
 			for _, m := range u.Node().InputMaterials() {
 				m.NodeData().Node.RemoveInputMaterial(m)
-				delete(userMaterials, m.ID())
+				delete(playerMaterials, m.ID())
 			}
 
 			return true

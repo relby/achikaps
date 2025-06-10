@@ -8,10 +8,13 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/relby/achikaps/assert"
+	"github.com/relby/achikaps/config"
 	"github.com/relby/achikaps/graph"
 	"github.com/relby/achikaps/match_state"
 	"github.com/relby/achikaps/model"
+	"github.com/relby/achikaps/opcode"
 	"github.com/relby/achikaps/vec2"
+	"github.com/relby/achikaps/win_condition"
 )
 
 func generateUUID() string {
@@ -50,7 +53,9 @@ func main() {
 		Materials: make(map[string]map[model.ID]*model.Material),
 		NextMaterialIDs: make(map[string]model.ID),
 		
-		ClientUpdates: make(map[string][]*match_state.ClientUpdate),
+		WinCondition: win_condition.New(model.JuiceMaterialType, 100),
+		
+		UnitActionExecutes: make(map[string][]*opcode.UnitActionExecuteResp),
 	}
 
 	state.Presences[id] = &MyPresence{username: "test"}
@@ -69,7 +74,7 @@ func main() {
 
 	for i := range 2 {
 		angle := rand.Float64() * 2 * math.Pi
-		radius := model.DefaultNodeRadius * (4 + rand.Float64()*4) // Random radius between 4-8 times DefaultNodeRadius
+		radius := config.NodeRadius * (4 + rand.Float64()*4) // Random radius between 4-8 times DefaultNodeRadius
 		pos := vec2.New(
 			root.Position().X + radius*math.Cos(angle),
 			root.Position().Y + radius*math.Sin(angle),

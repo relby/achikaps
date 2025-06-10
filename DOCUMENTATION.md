@@ -26,7 +26,7 @@
 - Действие юнита (UnitAction)
 ```json
 {
-    "Type": // 1 - Moving, 2 - Production, 3 - Building
+    "Type": // 1 - Moving, 2 - Production, 3 - Building, 4 - Transport
     "IsStarted": bool
     "Data": any // Данные, зависящие от типа
 }
@@ -60,22 +60,41 @@
 ```json
 {
     "ID": uint
-    "Type": uint // TODO
+    "Type": uint
     "Node": Node
     "IsReserved": bool
 }
 ```
+- Типы Материалов (MaterialType)
+1. `GrassMaterialType`
+2. `SandMaterialType`
+3. `DewMaterialType`
+4. `SeedMaterialType`
+5. `SugarMaterialType`
+6. `JuiceMaterialType`
+7. `ChitinMaterialType`
+8. `EggMaterialType`
+9. `PheromoneMaterialType`
+10. `AmberMaterialType`
 
+- Условие победы (WinCondition)
+```json
+{
+    "MaterialType": MaterialType
+    "Count": int
+}
+```
 
 ### Оп коды
 - 1. Получение стартого стэйта
   - Ответ:
     ```json
     {
-        "Nodes": Map<UserID, Map<NodeID, Node>>
-        "Connections": Map<UserID, Map<NodeID, List<NodeID>>>
-        "Units": Map<UserID, Map<UnitID, Unit>>
-        "Materials": Map<UserID, Map<MaterialID, Material>>
+        "Nodes": Map<SessionID, Map<NodeID, Node>>
+        "Connections": Map<SessionID, Map<NodeID, List<NodeID>>>
+        "Units": Map<SessionID, Map<UnitID, Unit>>
+        "Materials": Map<SessionID, Map<MaterialID, Material>>
+        "WinCondition": WinCondition
     }
     ```
 - 2. Строительство ноды
@@ -104,9 +123,9 @@
     ```
     2. Ошибка: `{"error": string}`
 - 3. Начало выполнение действия юнитом
-  - Ответ: `Map<UserID, ClientUpdate>`
+  - Ответ: `Map<SessionID, UnitActionExecuteResp>`
 
-  Модель `ClientUpdate`
+  Модель `UnitActionExecuteResp`
   ```json
   {
     "Unit": Unit
@@ -129,3 +148,12 @@
     }
     ```
     2. Ошибка: `{"error": string}`
+- 5. Победа одного из игроков
+  - Ответ: `WinResp`
+
+  Модель `WinResp`
+  ```json
+  {
+    "SessionID": string
+  }
+  ```

@@ -1,13 +1,9 @@
 package opcode
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 
-	"github.com/heroiclabs/nakama-common/runtime"
-	"github.com/relby/achikaps/assert"
-	"github.com/relby/achikaps/match_state"
+	"github.com/relby/achikaps/model"
 )
 
 type OpCode int64
@@ -21,54 +17,27 @@ func NewOpCode(v int64) (OpCode, error) {
 	return 0, errors.New("invalid op code")
 }
 
-// TODO: Refactor all opcodes
 const (
 	InitialState OpCode = iota + 1
 	BuildNode
 	UnitActionExecute
 	ChangeUnitType
+	Win
 )
 
-type Handler func(runtime.MatchDispatcher, runtime.MatchData, *match_state.State) error
-
-var Handlers = map[OpCode]Handler{
-	BuildNode: BuildNodeHandler,
-	ChangeUnitType: ChangeUnitTypeHandler,
+type UnitActionExecuteResp struct {
+	Unit *model.Unit
+	UnitAction *model.UnitAction
 }
 
-type okResp struct{}
-
-type errorResp struct {
-	Error error `json:"error"`
+func NewUnitActionExecuteResp(unit *model.Unit, unitAction *model.UnitAction) *UnitActionExecuteResp {
+	return &UnitActionExecuteResp{unit, unitAction}
 }
 
-func sendOkResp(dispatcher runtime.MatchDispatcher, opCode OpCode, userID string, state *match_state.State) error {
-	resp, err := json.Marshal(okResp{})
-	assert.NoError(err)
-
-	if err := dispatcher.BroadcastMessage(int64(opCode), resp, nil, state.Presences[userID], true); err != nil {
-		return fmt.Errorf("can't broadcast message: %w", err)
-	}
-
-	return nil
+type WinResp struct {
+	SessionID string
 }
 
-func sendErrorResp(err error, dispatcher runtime.MatchDispatcher, opCode OpCode, userID string, state *match_state.State) error {
-	resp, err := json.Marshal(errorResp{Error: err})
-	assert.NoError(err)
-
-	if err := dispatcher.BroadcastMessage(int64(opCode), resp, []runtime.Presence{state.Presences[userID]}, state.Presences[userID], true); err != nil {
-		return fmt.Errorf("can't broadcast message: %w", err)
-	}
-
-	return nil
-}
-
-func Handle(opCode OpCode, dispatcher runtime.MatchDispatcher, msg runtime.MatchData, state *match_state.State) error {
-	handler, ok := Handlers[opCode]
-	if !ok {
-		return fmt.Errorf("unknown op code: %d", opCode)
-	}
-
-	return handler(dispatcher, msg, state)
+func NewWinResp(sessionID string) *WinResp {
+	return &WinResp{sessionID}
 }

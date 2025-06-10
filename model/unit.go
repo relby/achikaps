@@ -6,11 +6,7 @@ import (
 
 	"github.com/gammazero/deque"
 	"github.com/relby/achikaps/assert"
-	"github.com/relby/achikaps/consts"
-)
-
-const (
-	DefaultUnitSpeed = 2
+	"github.com/relby/achikaps/config"
 )
 
 type UnitType uint
@@ -198,7 +194,7 @@ type MovingUnitActionData struct {
 func NewMovingUnitAction(speed float64, fromNode, toNode *Node) *UnitAction {
 	ticks := 1.0 / (speed / fromNode.DistanceTo(toNode))
 
-	timeMs := ticks * (1000.0 / float64(consts.TickRate))
+	timeMs := ticks * (1000.0 / float64(config.TickRate))
 	return newUnitAction(
 		MovingUnitActionType,
 		&MovingUnitActionData{speed, timeMs, fromNode, toNode, 0},

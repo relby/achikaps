@@ -5,11 +5,9 @@ import (
 	"errors"
 
 	"github.com/relby/achikaps/assert"
+	"github.com/relby/achikaps/config"
 	"github.com/relby/achikaps/vec2"
 )
-
-// TODO: Configure that
-const DefaultNodeRadius = 10.0
 
 type NodeType uint
 
@@ -76,7 +74,7 @@ func NewNode(id ID, name NodeName, pos vec2.Vec2) *Node {
 		nodeNameToNodeType(name),
 		name,
 		pos,
-		DefaultNodeRadius,
+		config.NodeRadius,
 		0,
 		make(map[ID]*Unit),
 		make(map[ID]*Material),

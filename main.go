@@ -12,17 +12,18 @@ import (
 	"github.com/heroiclabs/nakama-common/rtapi"
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/relby/achikaps/assert"
-	"github.com/relby/achikaps/consts"
+	"github.com/relby/achikaps/config"
 	"github.com/relby/achikaps/graph"
 	"github.com/relby/achikaps/match_state"
 	"github.com/relby/achikaps/model"
 	"github.com/relby/achikaps/opcode"
+	"github.com/relby/achikaps/opcode_handler"
 	"github.com/relby/achikaps/vec2"
+	"github.com/relby/achikaps/win_condition"
 )
 
 type Match struct{}
 
-const StartRadius = model.DefaultNodeRadius * 20
 func onCircle(i, n int, r float64) vec2.Vec2 {
 	angle := float64(i) * 2.0 * math.Pi / float64(n)
 
@@ -47,27 +48,29 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 
 		Materials: make(map[string]map[model.ID]*model.Material, len(players)),
 		NextMaterialIDs: make(map[string]model.ID, len(players)),
+		
+		WinCondition: win_condition.New(model.JuiceMaterialType, 100),
 
-		ClientUpdates: make(map[string][]*match_state.ClientUpdate, len(players)),
+		UnitActionExecutes: make(map[string][]*opcode.UnitActionExecuteResp, len(players)),
 	}
 	
 	for i, p := range players {
-		userID := p.GetPresence().GetUserId()
+		sessionID := p.GetPresence().GetSessionId()
 
 		root := model.NewNode(
 			model.ID(1),
 			model.SandTransitNodeName,
-			onCircle(i, len(players), StartRadius),
+			onCircle(i, len(players), config.PlayersStartRadius),
 		)
 		root.BuildFully()
 
 		g := graph.New(root)
 
-		state.Graphs[userID] = g
+		state.Graphs[sessionID] = g
 
 		for i := range 2 {
 			angle := rand.Float64() * 2 * math.Pi
-			radius := model.DefaultNodeRadius * (4 + rand.Float64()*4) // Random radius between 4-8 times DefaultNodeRadius
+			radius := config.NodeRadius * (4 + rand.Float64()*4) // Random radius between 4-8 times DefaultNodeRadius
 			pos := vec2.New(
 				root.Position().X + radius*math.Cos(angle),
 				root.Position().Y + radius*math.Sin(angle),
@@ -84,34 +87,34 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 			assert.NoError(err)
 		}
 
-		state.NextNodeIDs[userID] = model.ID(3)
+		state.NextNodeIDs[sessionID] = model.ID(3)
 		
-		state.Units[userID] = map[model.ID]*model.Unit{
+		state.Units[sessionID] = map[model.ID]*model.Unit{
 			1: model.NewUnit(1, model.IdleUnitType, root),
 			2: model.NewUnit(2, model.ProductionUnitType, root),
 			3: model.NewUnit(3, model.BuilderUnitType, root),
 			4: model.NewUnit(4, model.TransportUnitType, root),
 		}
 		
-		state.NextUnitIDs[userID] = model.ID(5)
+		state.NextUnitIDs[sessionID] = model.ID(5)
 		
-		state.Materials[userID] = make(map[model.ID]*model.Material, 28)
+		state.Materials[sessionID] = make(map[model.ID]*model.Material, 28)
 		c := 1
 		for range 20 {
-			state.Materials[userID][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, root, false)
+			state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, root, false)
 			c += 1
 		}
 		for range 6 {
-			state.Materials[userID][model.ID(c)] = model.NewMaterial(model.ID(c), model.SandMaterialType, root, false)
+			state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), model.SandMaterialType, root, false)
 			c += 1
 		}
 		for range 2 {
-			state.Materials[userID][model.ID(c)] = model.NewMaterial(model.ID(c), model.DewMaterialType, root, false)
+			state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), model.DewMaterialType, root, false)
 			c += 1
 		}
 	}
 
-	tickRate := consts.TickRate // 1 tick per second = 1 MatchLoop func invocations per second
+	tickRate := config.TickRate // 1 tick per second = 1 MatchLoop func invocations per second
 	label := "achikaps"
 	return state, tickRate, label
 }
@@ -130,8 +133,8 @@ func (m *Match) MatchJoin(ctx context.Context, logger runtime.Logger, db *sql.DB
 	}
 
 	for _, p := range presences {
-		userID := p.GetUserId()
-		matchState.Presences[userID] = p
+		sessionID := p.GetSessionId()
+		matchState.Presences[sessionID] = p
 	}
 
 	type initialStateResp struct {
@@ -139,6 +142,7 @@ func (m *Match) MatchJoin(ctx context.Context, logger runtime.Logger, db *sql.DB
 		Connections map[string]map[model.ID][]model.ID
 		Units map[string]map[model.ID]*model.Unit
 		Materials map[string]map[model.ID]*model.Material
+		WinCondition *win_condition.WinCondition
 	}
 
 	resp := &initialStateResp{}
@@ -157,6 +161,7 @@ func (m *Match) MatchJoin(ctx context.Context, logger runtime.Logger, db *sql.DB
 
 	resp.Units = matchState.Units
 	resp.Materials = matchState.Materials
+	resp.WinCondition = matchState.WinCondition
 
 	respBytes, err := json.Marshal(resp)
 	if err != nil {
@@ -181,7 +186,7 @@ func (m *Match) MatchLeave(ctx context.Context, logger runtime.Logger, db *sql.D
 
 	// TODO: research if we need to delete only presences or all data
 	for _, p := range presences {
-		delete(matchState.Presences, p.GetUserId())
+		delete(matchState.Presences, p.GetSessionId())
 	}
 
 	return matchState
@@ -202,7 +207,7 @@ func (m *Match) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB
 			return nil
 		}
 
-		if err := opcode.Handle(opCode, dispatcher, msg, matchState); err != nil {
+		if err := opcode_handler.Handle(opCode, dispatcher, msg, matchState); err != nil {
 			logger.Error(err.Error())
 			return nil
 		}
@@ -211,17 +216,17 @@ func (m *Match) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB
 	matchState.Tick()
 	
 	for _, p := range matchState.Presences {
-		userID := p.GetUserId()
+		sessionID := p.GetSessionId()
 		
-		actions := matchState.ClientUpdates[userID]
-		if len(actions) == 0 {
+		unitActionExecutes := matchState.UnitActionExecutes[sessionID]
+		if len(unitActionExecutes) == 0 {
 			continue
 		}
 		
-		for _, a := range actions {
-			b, err := json.Marshal(a)
+		for _, uae := range unitActionExecutes {
+			b, err := json.Marshal(uae)
 			if err != nil {
-				logger.Error("can't unmarshal state: %w", err)
+				logger.Error("can't marshal UnitActionExecuteResp: %w", err)
 				return nil
 			}
 
@@ -231,7 +236,32 @@ func (m *Match) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB
 			}
 		}
 		
-		matchState.ClientUpdates[userID] = matchState.ClientUpdates[userID][:0]
+		matchState.UnitActionExecutes[sessionID] = matchState.UnitActionExecutes[sessionID][:0]
+	}
+	
+	for sessionID, playerMaterials := range matchState.Materials {
+		c := 0
+		for _, m := range playerMaterials {
+			if m.Type() == matchState.WinCondition.MaterialType {
+				c += 1
+			}
+		}
+		
+		if c >= matchState.WinCondition.Count {
+			b, err := json.Marshal(opcode.NewWinResp(sessionID))
+			if err != nil {
+				logger.Error("can't unmarshal state: %w", err)
+				return nil
+			}
+
+			if err := dispatcher.BroadcastMessage(int64(opcode.Win), b, nil, matchState.Presences[sessionID], true); err != nil {
+				logger.Error("can't broadcast message: %w", err)
+				return nil
+			}
+			
+			// This indicate that the match is over
+			return nil
+		}
 	}
 
 	return matchState
