@@ -51,8 +51,7 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 		
 		WinCondition: win_condition.New(model.JuiceMaterialType, 100),
 
-		UnitActionExecuteResps: make(map[string][]*opcode.UnitActionExecuteResp, len(players)),
-		NodeBuiltResps: make(map[string][]*opcode.NodeBuiltResp, len(players)),
+		RespsWithOpcode: make(map[string][]*opcode.RespWithOpCode, len(players)),
 	}
 	
 	for i, p := range players {
@@ -215,52 +214,29 @@ func (m *Match) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB
 	for _, p := range matchState.Presences {
 		sessionID := p.GetSessionId()
 		
-		resps := matchState.UnitActionExecuteResps[sessionID]
-		if len(resps) == 0 {
+		respsWithOpcode := matchState.RespsWithOpcode[sessionID]
+		if len(respsWithOpcode) == 0 {
 			continue
 		}
 		
-		for _, resp := range resps {
+		for _, rwo := range respsWithOpcode {
+			resp, opCode := rwo.Resp, rwo.OpCode
+
 			b, err := json.Marshal(resp)
 			if err != nil {
-				logger.Error("can't marshal UnitActionExecuteResp: %w", err)
+				logger.Error("can't marshal resp: %w", err)
 				return nil
 			}
 
-			if err := dispatcher.BroadcastMessage(int64(opcode.UnitActionExecute), b, nil, p, true); err != nil {
+			if err := dispatcher.BroadcastMessage(int64(opCode), b, nil, p, true); err != nil {
 				logger.Error("can't broadcast message: %w", err)
 				return nil
 			}
 		}
 		
-		matchState.UnitActionExecuteResps[sessionID] = matchState.UnitActionExecuteResps[sessionID][:0]
+		matchState.RespsWithOpcode[sessionID] = matchState.RespsWithOpcode[sessionID][:0]
 	}
 
-	for _, p := range matchState.Presences {
-		sessionID := p.GetSessionId()
-
-		resps := matchState.NodeBuiltResps[sessionID]
-		
-		if len(resps) == 0 {
-			continue
-		}
-		
-		for _, resp := range resps {
-			b, err := json.Marshal(resp)
-			if err != nil {
-				logger.Error("can't marshal NodeBuiltResp: %w", err)
-				return nil
-			}
-
-			if err := dispatcher.BroadcastMessage(int64(opcode.NodeBuilt), b, nil, p, true); err != nil {
-				logger.Error("can't broadcast message: %w", err)
-				return nil
-			}
-		}
-
-		matchState.NodeBuiltResps[sessionID] = matchState.NodeBuiltResps[sessionID][:0]
-	}
-	
 	for sessionID, playerMaterials := range matchState.Materials {
 		c := 0
 		for _, m := range playerMaterials {

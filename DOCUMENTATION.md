@@ -169,3 +169,30 @@
     "Node": Node
   }
   ```
+- 7. Удаление материала
+  - Ответ: `MaterialDestroyedResp`
+
+  Модель `MaterialDestroyedResp`
+  ```json
+  {
+    "Material": Material
+  }
+  ```
+- 8. Создание материала
+  - Ответ: `MaterialCreatedResp`
+
+  Модель `MaterialCreatedResp`
+  ```json
+  {
+    "Material": Material
+  }
+  ```
+- 9. Создание юнита
+  - Ответ: `UnitCreatedResp`
+
+  Модель `UnitCreatedResp`
+  ```json
+  {
+    "Unit": Unit
+  }
+  ```

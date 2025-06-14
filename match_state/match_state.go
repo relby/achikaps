@@ -16,7 +16,6 @@ import (
 	"github.com/relby/achikaps/win_condition"
 )
 
-
 type State struct {
 	Presences   map[string]runtime.Presence
 
@@ -31,8 +30,7 @@ type State struct {
 	
 	WinCondition *win_condition.WinCondition
 	
-	UnitActionExecuteResps map[string][]*opcode.UnitActionExecuteResp
-	NodeBuiltResps map[string][]*opcode.NodeBuiltResp
+	RespsWithOpcode map[string][]*opcode.RespWithOpCode
 }
 
 func (s *State) BuildNode(sessionID string, fromID model.ID, name model.NodeName, pos vec2.Vec2) (*model.Node, error) {
@@ -110,9 +108,12 @@ func (s *State) Tick() {
 			
 			// Action is about to start, add client updates
 			if !action.IsStarted {
-				s.UnitActionExecuteResps[sessionID] = append(
-					s.UnitActionExecuteResps[sessionID],
-					opcode.NewUnitActionExecuteResp(u, action),
+				s.RespsWithOpcode[sessionID] = append(
+					s.RespsWithOpcode[sessionID],
+					opcode.NewRespWithOpCode(
+						opcode.NewUnitActionExecuteResp(u, action),
+						opcode.UnitActionExecute,
+					),
 				)
 			}
 
@@ -517,6 +518,14 @@ func (s *State) executeUnitAction(sessionID string, u *model.Unit, action *model
 			for _, m := range uaData.InputMaterials {
 				m.NodeData().Node.RemoveInputMaterial(m)
 				delete(playerMaterials, m.ID())
+				
+				s.RespsWithOpcode[sessionID] = append(
+					s.RespsWithOpcode[sessionID],
+					opcode.NewRespWithOpCode(
+						opcode.NewMaterialDestroyedResp(m),
+						opcode.MaterialDestroyed,
+					),
+				)
 			}
 
 			if prodData.OutputMaterials != nil {
@@ -525,9 +534,18 @@ func (s *State) executeUnitAction(sessionID string, u *model.Unit, action *model
 						materialID, ok := s.NextMaterialIDs[sessionID]
 						assert.True(ok)
 
-						playerMaterials[materialID] = model.NewMaterial(materialID, sessionID, typ, u.Node(), false)
-						
+						m := model.NewMaterial(materialID, sessionID, typ, u.Node(), false)
+
+						playerMaterials[materialID] = m
 						s.NextMaterialIDs[sessionID] += 1
+
+						s.RespsWithOpcode[sessionID] = append(
+							s.RespsWithOpcode[sessionID],
+							opcode.NewRespWithOpCode(
+								opcode.NewMaterialCreatedResp(m),
+								opcode.MaterialCreated,
+							),
+						)
 					}
 				}
 			}
@@ -535,9 +553,20 @@ func (s *State) executeUnitAction(sessionID string, u *model.Unit, action *model
 			if prodData.OutputUnits > 0 {
 				unitID, ok := s.NextUnitIDs[sessionID]
 				assert.True(ok)
-				playerUnits[unitID] = model.NewUnit(unitID, sessionID, model.IdleUnitType, u.Node())
+				
+				u := model.NewUnit(unitID, sessionID, model.IdleUnitType, u.Node())
 
+				
+				playerUnits[unitID] = u
 				s.NextUnitIDs[sessionID] += 1
+
+				s.RespsWithOpcode[sessionID] = append(
+					s.RespsWithOpcode[sessionID],
+					opcode.NewRespWithOpCode(
+						opcode.NewUnitCreatedResp(u),
+						opcode.UnitCreated,
+					),
+				)
 			}
 			return true
 		}
@@ -551,11 +580,22 @@ func (s *State) executeUnitAction(sessionID string, u *model.Unit, action *model
 			for _, m := range u.Node().InputMaterials() {
 				m.NodeData().Node.RemoveInputMaterial(m)
 				delete(playerMaterials, m.ID())
+
+				s.RespsWithOpcode[sessionID] = append(
+					s.RespsWithOpcode[sessionID],
+					opcode.NewRespWithOpCode(
+						opcode.NewMaterialDestroyedResp(m),
+						opcode.MaterialDestroyed,
+					),
+				)
 			}
 			
-			s.NodeBuiltResps[sessionID] = append(
-				s.NodeBuiltResps[sessionID],
-				opcode.NewNodeBuiltResp(u.Node()),
+			s.RespsWithOpcode[sessionID] = append(
+				s.RespsWithOpcode[sessionID],
+				opcode.NewRespWithOpCode(
+					opcode.NewNodeBuiltResp(u.Node()),
+					opcode.NodeBuilt,
+				),
 			)
 
 			return true

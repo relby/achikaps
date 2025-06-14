@@ -25,7 +25,19 @@ const (
 	ChangeUnitType
 	Win
 	NodeBuilt
+	MaterialDestroyed
+	MaterialCreated
+	UnitCreated
 )
+
+type RespWithOpCode struct {
+	Resp any
+	OpCode OpCode
+}
+
+func NewRespWithOpCode(resp any, opcode OpCode) *RespWithOpCode {
+	return &RespWithOpCode{resp, opcode}
+}
 
 // TODO: create a constructor
 type InitialStateResp struct {
@@ -59,4 +71,28 @@ type NodeBuiltResp struct {
 
 func NewNodeBuiltResp(n *model.Node) *NodeBuiltResp {
 	return &NodeBuiltResp{n}
+}
+
+type MaterialDestroyedResp struct {
+	Material *model.Material
+}
+
+func NewMaterialDestroyedResp(m *model.Material) *MaterialDestroyedResp {
+	return &MaterialDestroyedResp{m}
+}
+
+type MaterialCreatedResp struct {
+	Material *model.Material
+}
+
+func NewMaterialCreatedResp(m *model.Material) *MaterialCreatedResp {
+	return &MaterialCreatedResp{m}
+}
+
+type UnitCreatedResp struct {
+	Unit *model.Unit
+}
+
+func NewUnitCreatedResp(u *model.Unit) *UnitCreatedResp {
+	return &UnitCreatedResp{u}
 }

@@ -55,8 +55,7 @@ func main() {
 		
 		WinCondition: win_condition.New(model.JuiceMaterialType, 100),
 		
-		UnitActionExecuteResps: make(map[string][]*opcode.UnitActionExecuteResp),
-		NodeBuiltResps: make(map[string][]*opcode.NodeBuiltResp),
+		RespsWithOpcode: make(map[string][]*opcode.RespWithOpCode),
 	}
 
 	state.Presences[id] = &MyPresence{username: "test"}
@@ -119,10 +118,10 @@ func main() {
 		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), id, model.DewMaterialType, root, false)
 		c += 1
 	}
-
+	
 	state.NextMaterialIDs[id] = model.ID(c)
 
-	n, err := state.BuildNode(id, root.ID(), model.GrassFieldNodeName, vec2.New(50, 50))
+	n, err := state.BuildNode(id, root.ID(), model.GrassFieldNodeName, vec2.New(3, 3))
 	if err != nil {
 		fmt.Println(err)
 		return
