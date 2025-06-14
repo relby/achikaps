@@ -48,7 +48,7 @@ func (s *State) BuildNode(sessionID string, fromID model.ID, name model.NodeName
 	toNodeID, ok := s.NextNodeIDs[sessionID]
 	assert.True(ok)
 
-	toNode := model.NewNode(toNodeID, name, pos)
+	toNode := model.NewNode(toNodeID, sessionID, name, pos)
 	
 	if fromNode.DistanceTo(toNode) > 10 * config.NodeRadius {
 		return nil, fmt.Errorf("new node is too far")
@@ -522,7 +522,7 @@ func (s *State) executeUnitAction(sessionID string, u *model.Unit, action *model
 						materialID, ok := s.NextMaterialIDs[sessionID]
 						assert.True(ok)
 
-						playerMaterials[materialID] = model.NewMaterial(materialID, typ, u.Node(), false)
+						playerMaterials[materialID] = model.NewMaterial(materialID, sessionID, typ, u.Node(), false)
 						
 						s.NextMaterialIDs[sessionID] += 1
 					}
@@ -532,7 +532,7 @@ func (s *State) executeUnitAction(sessionID string, u *model.Unit, action *model
 			if prodData.OutputUnits > 0 {
 				unitID, ok := s.NextUnitIDs[sessionID]
 				assert.True(ok)
-				playerUnits[unitID] = model.NewUnit(unitID, model.IdleUnitType, u.Node())
+				playerUnits[unitID] = model.NewUnit(unitID, sessionID, model.IdleUnitType, u.Node())
 
 				s.NextUnitIDs[sessionID] += 1
 			}

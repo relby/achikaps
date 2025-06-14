@@ -60,6 +60,7 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 
 		root := model.NewNode(
 			model.ID(1),
+			sessionID,
 			model.SandTransitNodeName,
 			onCircle(i, len(players), config.PlayersStartRadius),
 		)
@@ -79,6 +80,7 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 			
 			n := model.NewNode(
 				model.ID(i + 2),
+				sessionID,
 				model.SandTransitNodeName,
 				pos,
 			)
@@ -91,10 +93,10 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 		state.NextNodeIDs[sessionID] = model.ID(3)
 		
 		state.Units[sessionID] = map[model.ID]*model.Unit{
-			1: model.NewUnit(1, model.IdleUnitType, root),
-			2: model.NewUnit(2, model.ProductionUnitType, root),
-			3: model.NewUnit(3, model.BuilderUnitType, root),
-			4: model.NewUnit(4, model.TransportUnitType, root),
+			1: model.NewUnit(1, sessionID, model.IdleUnitType, root),
+			2: model.NewUnit(2, sessionID, model.ProductionUnitType, root),
+			3: model.NewUnit(3, sessionID, model.BuilderUnitType, root),
+			4: model.NewUnit(4, sessionID, model.TransportUnitType, root),
 		}
 		
 		state.NextUnitIDs[sessionID] = model.ID(5)
@@ -102,15 +104,15 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 		state.Materials[sessionID] = make(map[model.ID]*model.Material, 28)
 		c := 1
 		for range 20 {
-			state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, root, false)
+			state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), sessionID, model.GrassMaterialType, root, false)
 			c += 1
 		}
 		for range 6 {
-			state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), model.SandMaterialType, root, false)
+			state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), sessionID, model.SandMaterialType, root, false)
 			c += 1
 		}
 		for range 2 {
-			state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), model.DewMaterialType, root, false)
+			state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), sessionID, model.DewMaterialType, root, false)
 			c += 1
 		}
 		

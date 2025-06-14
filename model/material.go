@@ -32,14 +32,16 @@ func newNodeData(node *Node, isInput bool) *NodeData {
 
 type Material struct {
 	id ID
+	sessionID string
 	typ MaterialType
 	nodeData *NodeData
 	isReserved bool
 }
 
-func NewMaterial(id ID, typ MaterialType, n *Node, isInput bool) *Material {
+func NewMaterial(id ID, sessionID string, typ MaterialType, n *Node, isInput bool) *Material {
 	m := &Material{
 		id,
+		sessionID,
 		typ,
 		nil,
 		false,
@@ -83,16 +85,18 @@ func (m *Material) UnReserve() {
 func (m *Material) MarshalJSON() ([]byte, error) {
 	type materialJSON struct {
 		ID      ID
+		SessionID string
 		Type    MaterialType
 		NodeData    *NodeData
 		IsReserved bool
 	}
 
 	materialData := materialJSON{
-		ID:      m.id,
-		Type:    m.typ,
-		NodeData:    m.nodeData,
-		IsReserved: m.isReserved,
+		m.id,
+		m.sessionID,
+		m.typ,
+		m.nodeData,
+		m.isReserved,
 	}
 
 	return json.Marshal(materialData)

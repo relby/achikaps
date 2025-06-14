@@ -32,15 +32,17 @@ func NewUnitType(v uint) (UnitType, error) {
 
 type Unit struct {
 	id ID
+	sessionID string
 	typ UnitType
 	node *Node
 	material *Material
 	actions *deque.Deque[*UnitAction]
 }
 
-func NewUnit(id ID, typ UnitType, n *Node) *Unit {
+func NewUnit(id ID, sessionID string, typ UnitType, n *Node) *Unit {
 	u := &Unit{
 		id,
+		sessionID,
 		typ,
 		nil,
 		nil,
@@ -135,12 +137,14 @@ func (u *Unit) MarshalJSON() ([]byte, error) {
 	if u.typ == TransportUnitType {
 		unitData = struct {
 			ID      ID
+			SessionID string
 			Type    UnitType
 			Node    *Node
 			Material *Material
 			Actions  []*UnitAction
 		}{
 			u.id,
+			u.sessionID,
 			u.typ,
 			u.node,
 			u.material,
@@ -149,11 +153,13 @@ func (u *Unit) MarshalJSON() ([]byte, error) {
 	} else {
 		unitData = struct {
 			ID      ID
+			SessionID string
 			Type    UnitType
 			Node    *Node
 			Actions  []*UnitAction
 		}{
 			u.id,
+			u.sessionID,
 			u.typ,
 			u.node,
 			actions,

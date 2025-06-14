@@ -58,6 +58,7 @@ func NewNodeName(v uint) (NodeName, error) {
 
 type Node struct {
 	id       ID
+	sessionID string
 	typ     NodeType
 	name     NodeName
 	position vec2.Vec2
@@ -68,9 +69,10 @@ type Node struct {
 	outputMaterials map[ID]*Material
 }
 
-func NewNode(id ID, name NodeName, pos vec2.Vec2) *Node {
+func NewNode(id ID, sessionID string, name NodeName, pos vec2.Vec2) *Node {
 	return &Node{
 		id,
+		sessionID,
 		nodeNameToNodeType(name),
 		name,
 		pos,
@@ -192,6 +194,7 @@ func (n *Node) RemoveOutputMaterial(m *Material) {
 func (n *Node) MarshalJSON() ([]byte, error) {
 	type nodeJSON struct {
 		ID      ID
+		SessionID string
 		Type    NodeType
 		Name    NodeName
 		Position vec2.Vec2
@@ -200,12 +203,13 @@ func (n *Node) MarshalJSON() ([]byte, error) {
 	}
 
 	nodeData := nodeJSON{
-		ID:      n.id,
-		Type:    n.typ,
-		Name:    n.name,
-		Position: n.position,
-		Radius: n.radius,
-		BuildProgress: n.buildProgress,
+		n.id,
+		n.sessionID,
+		n.typ,
+		n.name,
+		n.position,
+		n.radius,
+		n.buildProgress,
 	}
 
 	return json.Marshal(nodeData)
