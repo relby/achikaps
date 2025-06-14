@@ -157,3 +157,12 @@
     "SessionID": string
   }
   ```
+- 6. Постройка ноды
+  - Ответ: `NodeBuiltResp`
+
+  Модель `NodeBuiltResp`
+  ```json
+  {
+    "Node": Node
+  }
+  ```
