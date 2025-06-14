@@ -50,7 +50,11 @@ func (s *State) BuildNode(sessionID string, fromID model.ID, name model.NodeName
 
 	toNode := model.NewNode(toNodeID, sessionID, name, pos)
 	
-	if fromNode.DistanceTo(toNode) > 10 * config.NodeRadius {
+	if fromNode.DistanceTo(toNode) < config.MinNodeDistance {
+		return nil, fmt.Errorf("new node is close")
+	}
+	
+	if fromNode.DistanceTo(toNode) > config.MaxNodeDistance {
 		return nil, fmt.Errorf("new node is too far")
 	}
 
