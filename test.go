@@ -55,7 +55,8 @@ func main() {
 		
 		WinCondition: win_condition.New(model.JuiceMaterialType, 100),
 		
-		UnitActionExecutes: make(map[string][]*opcode.UnitActionExecuteResp),
+		UnitActionExecuteResps: make(map[string][]*opcode.UnitActionExecuteResp),
+		NodeBuiltResps: make(map[string][]*opcode.NodeBuiltResp),
 	}
 
 	state.Presences[id] = &MyPresence{username: "test"}

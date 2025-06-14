@@ -31,7 +31,8 @@ type State struct {
 	
 	WinCondition *win_condition.WinCondition
 	
-	UnitActionExecutes map[string][]*opcode.UnitActionExecuteResp
+	UnitActionExecuteResps map[string][]*opcode.UnitActionExecuteResp
+	NodeBuiltResps map[string][]*opcode.NodeBuiltResp
 }
 
 func (s *State) BuildNode(sessionID string, fromID model.ID, name model.NodeName, pos vec2.Vec2) (*model.Node, error) {
@@ -105,7 +106,10 @@ func (s *State) Tick() {
 			
 			// Action is about to start, add client updates
 			if !action.IsStarted {
-				s.UnitActionExecutes[sessionID] = append(s.UnitActionExecutes[sessionID], opcode.NewUnitActionExecuteResp(u, action))
+				s.UnitActionExecuteResps[sessionID] = append(
+					s.UnitActionExecuteResps[sessionID],
+					opcode.NewUnitActionExecuteResp(u, action),
+				)
 			}
 
 			done := s.executeUnitAction(sessionID, u, action)
@@ -545,6 +549,11 @@ func (s *State) executeUnitAction(sessionID string, u *model.Unit, action *model
 				m.NodeData().Node.RemoveInputMaterial(m)
 				delete(playerMaterials, m.ID())
 			}
+			
+			s.NodeBuiltResps[sessionID] = append(
+				s.NodeBuiltResps[sessionID],
+				opcode.NewNodeBuiltResp(u.Node()),
+			)
 
 			return true
 		}

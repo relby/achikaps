@@ -51,7 +51,8 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 		
 		WinCondition: win_condition.New(model.JuiceMaterialType, 100),
 
-		UnitActionExecutes: make(map[string][]*opcode.UnitActionExecuteResp, len(players)),
+		UnitActionExecuteResps: make(map[string][]*opcode.UnitActionExecuteResp, len(players)),
+		NodeBuiltResps: make(map[string][]*opcode.NodeBuiltResp, len(players)),
 	}
 	
 	for i, p := range players {
@@ -112,6 +113,8 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 			state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), model.DewMaterialType, root, false)
 			c += 1
 		}
+		
+		state.NextMaterialIDs[sessionID] = model.ID(c)
 	}
 
 	tickRate := config.TickRate // 1 tick per second = 1 MatchLoop func invocations per second
@@ -137,15 +140,7 @@ func (m *Match) MatchJoin(ctx context.Context, logger runtime.Logger, db *sql.DB
 		matchState.Presences[sessionID] = p
 	}
 
-	type initialStateResp struct {
-		Nodes map[string]map[model.ID]*model.Node
-		Connections map[string]map[model.ID][]model.ID
-		Units map[string]map[model.ID]*model.Unit
-		Materials map[string]map[model.ID]*model.Material
-		WinCondition *win_condition.WinCondition
-	}
-
-	resp := &initialStateResp{}
+	resp := &opcode.InitialStateResp{}
 
 	resp.Nodes = make(map[string]map[model.ID]*model.Node, len(matchState.Graphs))
 	resp.Connections = make(map[string]map[model.ID][]model.ID, len(matchState.Graphs))
@@ -218,25 +213,50 @@ func (m *Match) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB
 	for _, p := range matchState.Presences {
 		sessionID := p.GetSessionId()
 		
-		unitActionExecutes := matchState.UnitActionExecutes[sessionID]
-		if len(unitActionExecutes) == 0 {
+		resps := matchState.UnitActionExecuteResps[sessionID]
+		if len(resps) == 0 {
 			continue
 		}
 		
-		for _, uae := range unitActionExecutes {
-			b, err := json.Marshal(uae)
+		for _, resp := range resps {
+			b, err := json.Marshal(resp)
 			if err != nil {
 				logger.Error("can't marshal UnitActionExecuteResp: %w", err)
 				return nil
 			}
 
 			if err := dispatcher.BroadcastMessage(int64(opcode.UnitActionExecute), b, nil, p, true); err != nil {
-				logger.Error("can't broadcast message state: %w", err)
+				logger.Error("can't broadcast message: %w", err)
 				return nil
 			}
 		}
 		
-		matchState.UnitActionExecutes[sessionID] = matchState.UnitActionExecutes[sessionID][:0]
+		matchState.UnitActionExecuteResps[sessionID] = matchState.UnitActionExecuteResps[sessionID][:0]
+	}
+
+	for _, p := range matchState.Presences {
+		sessionID := p.GetSessionId()
+
+		resps := matchState.NodeBuiltResps[sessionID]
+		
+		if len(resps) == 0 {
+			continue
+		}
+		
+		for _, resp := range resps {
+			b, err := json.Marshal(resp)
+			if err != nil {
+				logger.Error("can't marshal NodeBuiltResp: %w", err)
+				return nil
+			}
+
+			if err := dispatcher.BroadcastMessage(int64(opcode.NodeBuilt), b, nil, p, true); err != nil {
+				logger.Error("can't broadcast message: %w", err)
+				return nil
+			}
+		}
+
+		matchState.NodeBuiltResps[sessionID] = matchState.NodeBuiltResps[sessionID][:0]
 	}
 	
 	for sessionID, playerMaterials := range matchState.Materials {
