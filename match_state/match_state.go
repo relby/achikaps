@@ -501,15 +501,14 @@ func (s *State) executeUnitAction(sessionID string, u *model.Unit, action *model
 		uaData, ok := action.Data.(*model.ProductionUnitActionData)
 		assert.True(ok)
 
-		const progressIncrement = 0.1
-		uaData.Progress += progressIncrement
+		assert.Equals(u.Node().Type(), model.ProductionNodeType)
+		prodData, ok := u.Node().ProductionData()
+		assert.True(ok)
+
+		uaData.Progress += prodData.ProgressInc
 		
 		if uaData.Progress >= 1.0 {
 			uaData.Progress = 1.0
-
-			assert.Equals(u.Node().Type(), model.ProductionNodeType)
-			prodData, ok := u.Node().ProductionData()
-			assert.True(ok)
 			
 			for _, m := range uaData.InputMaterials {
 				m.NodeData().Node.RemoveInputMaterial(m)

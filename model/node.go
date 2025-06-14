@@ -216,15 +216,20 @@ func (n *Node) MarshalJSON() ([]byte, error) {
 }
 
 type ProductionNodeData struct {
-	Speed float64
+	TimeMs float64
+	ProgressInc float64
 	InputMaterials map[MaterialType]uint
 	OutputMaterials map[MaterialType]uint
 	OutputUnits uint
 }
 
-func newProductionNodeData(speed float64, inputMaterials, outputMaterials map[MaterialType]uint, outputUnits uint) *ProductionNodeData {
+func newProductionNodeData(timeMs float64, inputMaterials, outputMaterials map[MaterialType]uint, outputUnits uint) *ProductionNodeData {
+	ticks := timeMs * float64(config.TickRate) / 1000.0
+	progressInc := 1.0 / ticks
+
 	return &ProductionNodeData{
-		speed,
+		timeMs,
+		progressInc,
 		inputMaterials,
 		outputMaterials,
 		outputUnits,
@@ -236,12 +241,10 @@ func (n *Node) ProductionData() (*ProductionNodeData, bool) {
 		return nil, false
 	}
 	
-	// TODO: Change this
-	defaultSpeed := 1.0
 	switch n.name {
 	case GrassFieldNodeName:
 		return newProductionNodeData(
-			defaultSpeed,
+			3_000.0,
 			nil,
 			map[MaterialType]uint{
 				GrassMaterialType: 1,
@@ -250,7 +253,7 @@ func (n *Node) ProductionData() (*ProductionNodeData, bool) {
 		), true
     case WellNodeName:
 		return newProductionNodeData(
-			defaultSpeed,
+			3_000.0,
 			nil,
 			map[MaterialType]uint{
 				DewMaterialType: 1,
@@ -259,8 +262,11 @@ func (n *Node) ProductionData() (*ProductionNodeData, bool) {
 		), true
     case SeedStorageNodeName:
 		return newProductionNodeData(
-			defaultSpeed,
-			nil,
+			3_000.0,
+			map[MaterialType]uint{
+				GrassMaterialType: 3,
+				DewMaterialType: 1,
+			},
 			map[MaterialType]uint{
 				SeedMaterialType: 1,
 			},
@@ -268,7 +274,7 @@ func (n *Node) ProductionData() (*ProductionNodeData, bool) {
 		), true
     case AphidDistillationNodeName:
 		return newProductionNodeData(
-			defaultSpeed,
+			5_000.0,
 			map[MaterialType]uint{
 				DewMaterialType: 1,
 			},
@@ -279,7 +285,7 @@ func (n *Node) ProductionData() (*ProductionNodeData, bool) {
 		), true
     case RawMaterialVatNodeName:
 		return newProductionNodeData(
-			defaultSpeed,
+			5_000.0,
 			map[MaterialType]uint{
 				DewMaterialType: 1,
 				SeedMaterialType: 1,
@@ -291,7 +297,7 @@ func (n *Node) ProductionData() (*ProductionNodeData, bool) {
 		), true
     case ChitinPressNodeName:
 		return newProductionNodeData(
-			defaultSpeed,
+			5_000.0,
 			map[MaterialType]uint{
 				SandMaterialType: 1,
 			},
@@ -302,7 +308,7 @@ func (n *Node) ProductionData() (*ProductionNodeData, bool) {
 		), true
     case EggFarmNodeName:
 		return newProductionNodeData(
-			defaultSpeed,
+			7_000.0,
 			map[MaterialType]uint{
 				SeedMaterialType: 1,
 				SugarMaterialType: 1,
@@ -314,7 +320,7 @@ func (n *Node) ProductionData() (*ProductionNodeData, bool) {
 		), true
     case PheromoneMineNodeName:
 		return newProductionNodeData(
-			defaultSpeed,
+			7_000.0,
 			map[MaterialType]uint{
 				JuiceMaterialType: 1,
 				ChitinMaterialType: 1,
@@ -326,17 +332,17 @@ func (n *Node) ProductionData() (*ProductionNodeData, bool) {
 		), true
     case IncubatorNodeName:
 		return newProductionNodeData(
-			defaultSpeed,
+			10_000.0,
 			map[MaterialType]uint{
 				EggMaterialType: 1,
-				GrassMaterialType: 1,
+				GrassMaterialType: 3,
 			},
 			nil,
 			1,
 		), true
     case GeneticHatcheryNodeName:
 		return newProductionNodeData(
-			defaultSpeed,
+			5_000.0,
 			map[MaterialType]uint{
 				EggMaterialType: 1,
 				JuiceMaterialType: 1,
