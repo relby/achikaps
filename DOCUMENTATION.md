@@ -5,6 +5,7 @@
 ```json
 {
     "ID": uint
+    "SessionID": string
     "Type": uint // 1 - Transit, 2 - Production
     "Name": uint
     "Position": {"X": float64, "Y": float64}
@@ -17,6 +18,7 @@
 ```json
 {
     "Type": uint // 1 - Idle, 2 - Production, 3 - Builder, 4 - Transport
+    "SessionID": string
     "Node": Node // см. выше
     "Material": Material // только для Transport типа
     "Action": UnitAction // см. ниже
@@ -60,6 +62,7 @@
 ```json
 {
     "ID": uint
+    "SessionID": string
     "Type": uint
     "Node": Node
     "IsReserved": bool
