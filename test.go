@@ -63,6 +63,7 @@ func main() {
 
 	root := model.NewNode(
 		model.ID(1),
+		id,
 		model.SandTransitNodeName,
 		vec2.New(0, 0),
 	)
@@ -83,6 +84,7 @@ func main() {
 		
 		n := model.NewNode(
 			model.ID(i + 2),
+			id,
 			model.SandTransitNodeName,
 			pos,
 		)
@@ -95,10 +97,10 @@ func main() {
 	state.NextNodeIDs[id] = model.ID(4)
 	
 	state.Units[id] = map[model.ID]*model.Unit{
-		1: model.NewUnit(1, model.IdleUnitType, root),
-		2: model.NewUnit(2, model.ProductionUnitType, root),
-		3: model.NewUnit(3, model.BuilderUnitType, root),
-		4: model.NewUnit(4, model.TransportUnitType, root),
+		1: model.NewUnit(1, id, model.IdleUnitType, root),
+		2: model.NewUnit(2, id, model.ProductionUnitType, root),
+		3: model.NewUnit(3, id, model.BuilderUnitType, root),
+		4: model.NewUnit(4, id, model.TransportUnitType, root),
 	}
 	
 	state.NextUnitIDs[id] = model.ID(5)
@@ -106,15 +108,15 @@ func main() {
 	state.Materials[id] = make(map[model.ID]*model.Material, 28)
 	c := 1
 	for range 20 {
-		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, root, false)
+		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), id, model.GrassMaterialType, root, false)
 		c += 1
 	}
 	for range 6 {
-		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.SandMaterialType, root, false)
+		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), id, model.SandMaterialType, root, false)
 		c += 1
 	}
 	for range 2 {
-		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.DewMaterialType, root, false)
+		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), id, model.DewMaterialType, root, false)
 		c += 1
 	}
 
