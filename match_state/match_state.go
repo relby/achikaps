@@ -263,15 +263,16 @@ func (s *State) pollActions(sessionID string, u *model.Unit) {
 				c -= 1
 				if c == 0 {
 					delete(data.InputMaterials, m.Type())
-					if len(data.InputMaterials) == 0 {
-						enoughMaterials = true
-						break
-					}
+				} else {
+					data.InputMaterials[m.Type()] = c
 				}
 
-				data.InputMaterials[m.Type()] = c
-
 				inputMaterials = append(inputMaterials, m)
+
+				if len(data.InputMaterials) == 0 {
+					enoughMaterials = true
+					break
+				}
 			}
 		}
 		
@@ -317,13 +318,14 @@ func (s *State) pollActions(sessionID string, u *model.Unit) {
 				c -= 1
 				if c == 0 {
 					delete(data.Materials, m.Type())
-					if len(data.Materials) == 0 {
-						enoughMaterials = true
-						break
-					}
+				} else {
+					data.Materials[m.Type()] = c
 				}
 
-				data.Materials[m.Type()] = c
+				if len(data.Materials) == 0 {
+					enoughMaterials = true
+					break
+				}
 			}
 			
 			if enoughMaterials {
@@ -373,13 +375,14 @@ func (s *State) pollActions(sessionID string, u *model.Unit) {
 				c -= 1
 				if c == 0 {
 					delete(data.Materials, m.Type())
-					if len(data.Materials) == 0 {
-						enoughMaterials = true
-						break
-					}
+				} else {
+					data.Materials[m.Type()] = c
 				}
 
-				data.Materials[m.Type()] = c
+				if len(data.Materials) == 0 {
+					enoughMaterials = true
+					break
+				}
 			}
 			
 			if enoughMaterials {
@@ -407,13 +410,14 @@ func (s *State) pollActions(sessionID string, u *model.Unit) {
 				c -= 1
 				if c == 0 {
 					delete(data.InputMaterials, m.Type())
-					if len(data.InputMaterials) == 0 {
-						enoughMaterials = true
-						break
-					}
+				} else {
+					data.InputMaterials[m.Type()] = c
 				}
 
-				data.InputMaterials[m.Type()] = c
+				if len(data.InputMaterials) == 0 {
+					enoughMaterials = true
+					break
+				}
 			}
 			
 			if enoughMaterials {
