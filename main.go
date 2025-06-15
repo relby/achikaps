@@ -70,20 +70,27 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 		state.Graphs[sessionID] = g
 
 		for i := range 2 {
-			angle := rand.Float64() * 2 * math.Pi
-			radius := config.MinNodeDistance + rand.Float64() * (config.MaxNodeDistance - config.MinNodeDistance)
-			pos := vec2.New(
-				root.Position().X + radius*math.Cos(angle),
-				root.Position().Y + radius*math.Sin(angle),
-			)
-			
-			n := model.NewNode(
-				model.ID(i + 2),
-				sessionID,
-				model.SandTransitNodeName,
-				pos,
-			)
-			n.BuildFully()
+			var n *model.Node
+			for {
+				angle := rand.Float64() * 2 * math.Pi
+				radius := config.MinNodeDistance + rand.Float64() * (config.MaxNodeDistance - config.MinNodeDistance)
+				pos := vec2.New(
+					root.Position().X + radius*math.Cos(angle),
+					root.Position().Y + radius*math.Sin(angle),
+				)
+				
+				n = model.NewNode(
+					model.ID(i + 2),
+					sessionID,
+					model.SandTransitNodeName,
+					pos,
+				)
+				n.BuildFully()
+				
+				if !g.NodeIntersectsAny(n) {
+					break
+				}
+			}
 			
 			err := g.AddNodeFrom(root, n)
 			assert.NoError(err)

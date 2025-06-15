@@ -5,7 +5,6 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/relby/achikaps/assert"
 	"github.com/relby/achikaps/config"
@@ -74,20 +73,27 @@ func main() {
 	state.Graphs[id] = g
 
 	for i := range 2 {
-		angle := rand.Float64() * 2 * math.Pi
-		radius := config.MinNodeDistance + rand.Float64() * (config.MaxNodeDistance - config.MinNodeDistance)
-		pos := vec2.New(
-			root.Position().X + radius*math.Cos(angle),
-			root.Position().Y + radius*math.Sin(angle),
-		)
-		
-		n := model.NewNode(
-			model.ID(i + 2),
-			id,
-			model.SandTransitNodeName,
-			pos,
-		)
-		n.BuildFully()
+		var n *model.Node
+		for {
+			angle := rand.Float64() * 2 * math.Pi
+			radius := config.MinNodeDistance + rand.Float64() * (config.MaxNodeDistance - config.MinNodeDistance)
+			pos := vec2.New(
+				root.Position().X + radius*math.Cos(angle),
+				root.Position().Y + radius*math.Sin(angle),
+			)
+			
+			n = model.NewNode(
+				model.ID(i + 2),
+				id,
+				model.SandTransitNodeName,
+				pos,
+			)
+			n.BuildFully()
+			
+			if !g.NodeIntersectsAny(n) {
+				break
+			}
+		}
 		
 		err := g.AddNodeFrom(root, n)
 		assert.NoError(err)
@@ -121,11 +127,11 @@ func main() {
 	
 	state.NextMaterialIDs[id] = model.ID(c)
 
-	n, err := state.BuildNode(id, root.ID(), model.GrassFieldNodeName, vec2.New(3, 3))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	// _, err := state.BuildNode(id, root.ID(), model.GrassFieldNodeName, vec2.New(5, 5))
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
 
 	// state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n, true)
 	// c += 1
@@ -158,13 +164,13 @@ func main() {
 			if u.Actions().Len() != 0 {
 				a := u.Actions().Front()
 				if a.Type == model.MovingUnitActionType {
-					spew.Dump(u)
+					// spew.Dump(u)
 					break
 				}
 			}
 		}
 		if len(state.Graphs[id].BuildingNodes()) == 0 {
-			spew.Dump(n)
+			// spew.Dump(n)
 			break
 		}
 
