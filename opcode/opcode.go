@@ -11,7 +11,15 @@ type OpCode int64
 
 func NewOpCode(v int64) (OpCode, error) {
 	switch v := OpCode(v); v {
-	case InitialState, BuildNode, UnitActionExecute:
+	case InitialState,
+		BuildNode,
+		UnitActionExecute,
+		ChangeUnitType,
+		Win,
+		NodeBuilt,
+		MaterialDestroyed,
+		MaterialCreated,
+		UnitCreated:
 		return v, nil
 	}
 
