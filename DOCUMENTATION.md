@@ -105,17 +105,24 @@
     ```json
     {
         "FromNodeID": uint // От какой ноды строить путь до новой
-        "Type": uint // Тип ноды, описан ниже
+        "Name": uint // Названия ноды, описан ниже
         "Position": {"X": float64, "Y": float64} // Позиция новой ноды
-        "Data": any // Допольнительный данные, описаны ниже
     }
     ```
-  - Типы нод:
-    1. Транзитная нода
-    2. Производственная нода
-       - Данные, тип `uint` (поле `Data`):
-         1) Производит новых юнитов
-         2) Производит материал (пока одного типа)
+  - Названия нод:
+    1. `SandTransitNodeName`
+    2. `GrassFieldNodeName`
+    3. `WellNodeName`
+    4. `SeedStorageNodeName`
+    5. `AphidDistillationNodeName`
+    6. `RawMaterialVatNodeName`
+    7. `ChitinPressNodeName`
+    8. `EggFarmNodeName`
+    9. `PheromoneMineNodeName`
+    10. `IncubatorNodeName`
+    11. `GeneticHatcheryNodeName`
+    12. `GuardOutpostNodeName`
+    13. `AmberTurretNodeName`
   - Ответа:
     1. Успех: 
     ```json
