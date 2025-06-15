@@ -96,7 +96,7 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 			assert.NoError(err)
 		}
 
-		state.NextNodeIDs[sessionID] = model.ID(3)
+		state.NextNodeIDs[sessionID] = model.ID(4)
 		
 		state.Units[sessionID] = map[model.ID]*model.Unit{
 			1: model.NewUnit(1, sessionID, model.IdleUnitType, root),
