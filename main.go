@@ -103,9 +103,15 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 			2: model.NewUnit(2, sessionID, model.ProductionUnitType, root),
 			3: model.NewUnit(3, sessionID, model.BuilderUnitType, root),
 			4: model.NewUnit(4, sessionID, model.TransportUnitType, root),
+			5: model.NewUnit(5, sessionID, model.IdleUnitType, root),
+			6: model.NewUnit(6, sessionID, model.IdleUnitType, root),
+			7: model.NewUnit(7, sessionID, model.IdleUnitType, root),
+			8: model.NewUnit(8, sessionID, model.IdleUnitType, root),
+			9: model.NewUnit(9, sessionID, model.IdleUnitType, root),
+			10: model.NewUnit(10, sessionID, model.IdleUnitType, root),
 		}
 		
-		state.NextUnitIDs[sessionID] = model.ID(5)
+		state.NextUnitIDs[sessionID] = model.ID(11)
 		
 		state.Materials[sessionID] = make(map[model.ID]*model.Material, 28)
 		c := 1
