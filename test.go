@@ -75,7 +75,7 @@ func main() {
 
 	for i := range 2 {
 		angle := rand.Float64() * 2 * math.Pi
-		radius := config.NodeRadius * (4 + rand.Float64()*4) // Random radius between 4-8 times DefaultNodeRadius
+		radius := config.MinNodeDistance + rand.Float64() * (config.MaxNodeDistance - config.MinNodeDistance)
 		pos := vec2.New(
 			root.Position().X + radius*math.Cos(angle),
 			root.Position().Y + radius*math.Sin(angle),
@@ -154,6 +154,15 @@ func main() {
 		// if c == 5 {
 		// 	break
 		// }
+		for _, u := range state.Units[id] {
+			if u.Actions().Len() != 0 {
+				a := u.Actions().Front()
+				if a.Type == model.MovingUnitActionType {
+					spew.Dump(u)
+					break
+				}
+			}
+		}
 		if len(state.Graphs[id].BuildingNodes()) == 0 {
 			spew.Dump(n)
 			break
