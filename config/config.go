@@ -8,5 +8,5 @@ const (
 	MinNodeDistance = NodeRadius * 2
 	MaxNodeDistance = NodeRadius * 5
 
-	UnitSpeed float64 = 0.4
+	UnitSpeed float64 = 0.135
 )
