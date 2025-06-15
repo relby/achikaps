@@ -20,7 +20,7 @@ var Handlers = map[opcode.OpCode]Handler{
 type okResp struct{}
 
 type errorResp struct {
-	Error string `json:"error"`
+	Error string
 }
 
 func sendOkResp(dispatcher runtime.MatchDispatcher, opCode opcode.OpCode, sessionID string, state *match_state.State) error {
