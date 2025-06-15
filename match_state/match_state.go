@@ -38,7 +38,7 @@ func (s *State) BuildNode(sessionID string, fromID model.ID, name model.NodeName
 	assert.True(ok)
 	
 	fromNode, err := playerGraph.Node(fromID)
-	if errors.Is(err, graph.ErrEdgeNotFound) {
+	if errors.Is(err, graph.ErrVertexNotFound) {
 		return nil, fmt.Errorf("node not found: %w", err)
 	}
 	assert.NoError(err)

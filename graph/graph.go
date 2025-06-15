@@ -13,6 +13,7 @@ import (
 var (
 	ErrEdgeNotFound = graph.ErrEdgeNotFound
 	ErrEdgeAlreadyExists = graph.ErrEdgeAlreadyExists
+	ErrVertexNotFound = graph.ErrVertexNotFound
 )
 
 type Edge = graph.Edge[model.ID]
