@@ -93,6 +93,27 @@ func (u *Unit) SetType(t UnitType) {
 			}
 	}
 
+	for i := range u.actions.Len() {
+		a := u.actions.At(i)
+		if a.Type == ProductionUnitActionType {
+			uaData, ok := a.Data.(*ProductionUnitActionData)
+			assert.True(ok)
+			for _, m := range uaData.InputMaterials {
+				m.UnReserve()
+			}
+		}
+	}
+	
+	if u.actions.Len() != 0 {
+		a := u.actions.Front()
+
+		u.actions.Clear()
+		
+		if a.Type == MovingUnitActionType {
+			u.actions.PushBack(a)
+		}
+	}
+
 	u.typ = t
 }
 
