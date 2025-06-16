@@ -5,7 +5,6 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/relby/achikaps/assert"
 	"github.com/relby/achikaps/config"
@@ -181,10 +180,6 @@ func main() {
 		// if c == 5 {
 		// 	break
 		// }
-		if state.Test == true {
-			spew.Dump(state.RespsWithOpcode)
-			break
-		}
 		// for _, u := range state.Units[id] {
 		// 	if u.Actions().Len() != 0 {
 		// 		a := u.Actions().Front()
