@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/relby/achikaps/assert"
 	"github.com/relby/achikaps/config"
@@ -100,38 +101,58 @@ func main() {
 	}
 
 	state.NextNodeIDs[id] = model.ID(4)
-	
-	state.Units[id] = map[model.ID]*model.Unit{
-		1: model.NewUnit(1, id, model.IdleUnitType, root),
-		2: model.NewUnit(2, id, model.ProductionUnitType, root),
-		3: model.NewUnit(3, id, model.BuilderUnitType, root),
-		4: model.NewUnit(4, id, model.TransportUnitType, root),
-	}
-	
-	state.NextUnitIDs[id] = model.ID(5)
 
-	state.Materials[id] = make(map[model.ID]*model.Material, 28)
-	c := 1
-	for range 20 {
-		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), id, model.GrassMaterialType, root, false)
-		c += 1
+	state.Units[id] = make(map[model.ID]*model.Unit)
+	c := model.ID(1)
+	for _, t := range []model.UnitType{model.IdleUnitType, model.BuilderUnitType, model.ProductionUnitType, model.TransportUnitType} {
+		for range 10 {
+			state.Units[id][c] = model.NewUnit(c, id, t, root)
+			c += 1
+		}
 	}
-	for range 6 {
-		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), id, model.SandMaterialType, root, false)
-		c += 1
-	}
-	for range 2 {
-		state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), id, model.DewMaterialType, root, false)
-		c += 1
-	}
-	
-	state.NextMaterialIDs[id] = model.ID(c)
+	state.NextUnitIDs[id] = c
 
-	// _, err := state.BuildNode(id, root.ID(), model.GrassFieldNodeName, vec2.New(5, 5))
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
+	state.Materials[id] = make(map[model.ID]*model.Material)
+	c = model.ID(1)
+	for _, t := range []model.MaterialType{model.GrassMaterialType, model.SandMaterialType, model.DewMaterialType, model.SeedMaterialType, model.SugarMaterialType, model.JuiceMaterialType, model.ChitinMaterialType, model.EggMaterialType, model.PheromoneMaterialType, model.AmberMaterialType} {
+		for range 100 {
+			state.Materials[id][c] = model.NewMaterial(c, id, t, root, false)
+			c += 1
+		}
+	}
+	state.NextMaterialIDs[id] = c
+	
+	// state.Units[id] = map[model.ID]*model.Unit{
+	// 	1: model.NewUnit(1, id, model.IdleUnitType, root),
+	// 	2: model.NewUnit(2, id, model.ProductionUnitType, root),
+	// 	3: model.NewUnit(3, id, model.BuilderUnitType, root),
+	// 	4: model.NewUnit(4, id, model.TransportUnitType, root),
 	// }
+	
+	// state.NextUnitIDs[id] = model.ID(5)
+
+	// state.Materials[id] = make(map[model.ID]*model.Material, 28)
+	// c := 1
+	// for range 20 {
+	// 	state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), id, model.GrassMaterialType, root, false)
+	// 	c += 1
+	// }
+	// for range 6 {
+	// 	state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), id, model.SandMaterialType, root, false)
+	// 	c += 1
+	// }
+	// for range 2 {
+	// 	state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), id, model.DewMaterialType, root, false)
+	// 	c += 1
+	// }
+	
+	// state.NextMaterialIDs[id] = model.ID(c)
+
+	_, err := state.BuildNode(id, root.ID(), model.GrassFieldNodeName, root.Position().Add(vec2.New(3, 3)))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	// state.Materials[id][model.ID(c)] = model.NewMaterial(model.ID(c), model.GrassMaterialType, n, true)
 	// c += 1
@@ -160,19 +181,23 @@ func main() {
 		// if c == 5 {
 		// 	break
 		// }
-		for _, u := range state.Units[id] {
-			if u.Actions().Len() != 0 {
-				a := u.Actions().Front()
-				if a.Type == model.MovingUnitActionType {
-					// spew.Dump(u)
-					break
-				}
-			}
-		}
-		if len(state.Graphs[id].BuildingNodes()) == 0 {
-			// spew.Dump(n)
+		if state.Test == true {
+			spew.Dump(state.RespsWithOpcode)
 			break
 		}
+		// for _, u := range state.Units[id] {
+		// 	if u.Actions().Len() != 0 {
+		// 		a := u.Actions().Front()
+		// 		if a.Type == model.MovingUnitActionType {
+		// 			// spew.Dump(u)
+		// 			break
+		// 		}
+		// 	}
+		// }
+		// if len(state.Graphs[id].BuildingNodes()) == 0 {
+		// 	// spew.Dump(n)
+		// 	break
+		// }
 
 		c += 1
 	}

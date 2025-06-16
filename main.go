@@ -98,37 +98,42 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 
 		state.NextNodeIDs[sessionID] = model.ID(4)
 		
-		state.Units[sessionID] = map[model.ID]*model.Unit{
-			1: model.NewUnit(1, sessionID, model.IdleUnitType, root),
-			2: model.NewUnit(2, sessionID, model.ProductionUnitType, root),
-			3: model.NewUnit(3, sessionID, model.BuilderUnitType, root),
-			4: model.NewUnit(4, sessionID, model.TransportUnitType, root),
-			5: model.NewUnit(5, sessionID, model.IdleUnitType, root),
-			6: model.NewUnit(6, sessionID, model.IdleUnitType, root),
-			7: model.NewUnit(7, sessionID, model.IdleUnitType, root),
-			8: model.NewUnit(8, sessionID, model.IdleUnitType, root),
-			9: model.NewUnit(9, sessionID, model.IdleUnitType, root),
-			10: model.NewUnit(10, sessionID, model.IdleUnitType, root),
+		state.Units[sessionID] = make(map[model.ID]*model.Unit)
+		c := model.ID(1)
+		for _, t := range []model.UnitType{model.IdleUnitType, model.BuilderUnitType, model.ProductionUnitType, model.TransportUnitType} {
+			for range 10 {
+				state.Units[sessionID][c] = model.NewUnit(c, sessionID, t, root)
+				c += 1
+			}
 		}
+		state.NextUnitIDs[sessionID] = c
+
+		state.Materials[sessionID] = make(map[model.ID]*model.Material)
+		c = model.ID(1)
+		for _, t := range []model.MaterialType{model.GrassMaterialType, model.SandMaterialType, model.DewMaterialType, model.SeedMaterialType, model.SugarMaterialType, model.JuiceMaterialType, model.ChitinMaterialType, model.EggMaterialType, model.PheromoneMaterialType, model.AmberMaterialType} {
+			for range 100 {
+				state.Materials[sessionID][c] = model.NewMaterial(c, sessionID, t, root, false)
+				c += 1
+			}
+		}
+		state.NextMaterialIDs[sessionID] = c
+
+		// state.Materials[sessionID] = make(map[model.ID]*model.Material, 28)
+		// c := 1
+		// for range 20 {
+		// 	state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), sessionID, model.GrassMaterialType, root, false)
+		// 	c += 1
+		// }
+		// for range 6 {
+		// 	state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), sessionID, model.SandMaterialType, root, false)
+		// 	c += 1
+		// }
+		// for range 2 {
+		// 	state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), sessionID, model.DewMaterialType, root, false)
+		// 	c += 1
+		// }
 		
-		state.NextUnitIDs[sessionID] = model.ID(11)
-		
-		state.Materials[sessionID] = make(map[model.ID]*model.Material, 28)
-		c := 1
-		for range 20 {
-			state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), sessionID, model.GrassMaterialType, root, false)
-			c += 1
-		}
-		for range 6 {
-			state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), sessionID, model.SandMaterialType, root, false)
-			c += 1
-		}
-		for range 2 {
-			state.Materials[sessionID][model.ID(c)] = model.NewMaterial(model.ID(c), sessionID, model.DewMaterialType, root, false)
-			c += 1
-		}
-		
-		state.NextMaterialIDs[sessionID] = model.ID(c)
+		// state.NextMaterialIDs[sessionID] = model.ID(c)
 	}
 
 	tickRate := config.TickRate // 1 tick per second = 1 MatchLoop func invocations per second
