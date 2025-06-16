@@ -101,7 +101,7 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 		state.Units[sessionID] = make(map[model.ID]*model.Unit)
 		c := model.ID(1)
 		for _, t := range []model.UnitType{model.IdleUnitType, model.BuilderUnitType, model.ProductionUnitType, model.TransportUnitType} {
-			for range 10 {
+			for range 4 {
 				state.Units[sessionID][c] = model.NewUnit(c, sessionID, t, root)
 				c += 1
 			}
@@ -111,7 +111,7 @@ func (m *Match) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB
 		state.Materials[sessionID] = make(map[model.ID]*model.Material)
 		c = model.ID(1)
 		for _, t := range []model.MaterialType{model.GrassMaterialType, model.SandMaterialType, model.DewMaterialType, model.SeedMaterialType, model.SugarMaterialType, model.JuiceMaterialType, model.ChitinMaterialType, model.EggMaterialType, model.PheromoneMaterialType, model.AmberMaterialType} {
-			for range 100 {
+			for range 30 {
 				state.Materials[sessionID][c] = model.NewMaterial(c, sessionID, t, root, false)
 				c += 1
 			}
